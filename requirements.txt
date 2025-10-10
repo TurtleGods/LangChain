@@ -4,3 +4,4 @@ tiktoken
 fastapi
 uvicorn
 langchain-google-genai
+langchain-openai
