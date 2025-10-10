@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  langchain:
+    build: .
+    container_name: langchain_app
+    command: ["python", "app/main.py"]
+    volumes:
+      - ./app:/app/app       # Mount your code for live edits
+      - ./requirements.txt:/app/requirements.txt
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LANGCHAIN_TRACING_V2=true
+      - LANGCHAIN_ENDPOINT=https://api.smith.langchain.com
+    ports:
+      - "8000:8000"          # if your app serves an API
+    restart: unless-stopped

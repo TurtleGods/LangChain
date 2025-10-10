@@ -1,0 +1,6 @@
+langchain
+openai
+tiktoken
+fastapi
+uvicorn
+langchain-google-genai
