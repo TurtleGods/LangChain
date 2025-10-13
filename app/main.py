@@ -1,8 +1,8 @@
 import os
+from app.Programs.Agent import create_chain
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -53,13 +53,28 @@ class QueryResponse(BaseModel):
     """Schema for the outgoing response body."""
     query: str
     response: str
-
+class QueryResponse1(BaseModel):
+    response: str
 # --- API Endpoints ---
-
+class QueryRequest1(BaseModel):
+    input_language: str
+    output_language: str
+    text: str
 @app.get("/")
 async def root():
     """Simple health check endpoint."""
     return {"status": "ok", "service": "LangChain FastAPI is ready to serve queries at /ask"}
+@app.post("/translate", response_model=QueryResponse1)
+async def translate_text(query: QueryRequest1):
+    try:
+        result = create_chain(
+            input_language=query.input_language,
+            output_language=query.output_language,
+            text=query.text
+        )
+        return QueryResponse1(response=result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"LLM chain failed: {str(e)}")
 
 @app.post("/ask", response_model=QueryResponse)
 async def ask_question(query: QueryRequest):

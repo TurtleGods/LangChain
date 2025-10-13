@@ -21,7 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install pip packages
 COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
-
+# ==============================
 # Copy app source
 COPY ./app ./app
 

@@ -1,0 +1,1 @@
+需要先建立一個.env file，並且寫入API key的參數及Token

@@ -9,6 +9,7 @@ services:
       - ./requirements.txt:/app/requirements.txt
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     ports:
       - "8000:8000"          # if your app serves an API
     restart: unless-stopped
