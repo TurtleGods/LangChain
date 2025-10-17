@@ -2,7 +2,7 @@ from sqlalchemy import create_engine, text
 from app.config import POSTGRES_URL
 
 print(POSTGRES_URL)
-engine = create_engine(POSTGRES_URL)
+engine = create_engine("postgresql://postgres:postgres@postgres:5432/langchain_db")
 def create_table_if_not_exists():
     with engine.begin() as conn:
         conn.execute(text("""

@@ -48,6 +48,8 @@ except Exception as e:
 @app.get("/")
 async def root():
     """Simple health check endpoint."""
+    print("Fetching Jira issues...")
+    ingest_jira_data()
     return {"status": "ok", "service": "LangChain FastAPI is ready to serve queries at /ask"}
 @app.post("/translate", response_model=QueryModel.QueryResponse1)
 async def translate_text(query: QueryModel.QueryRequest1):
