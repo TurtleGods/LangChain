@@ -13,3 +13,19 @@ services:
     ports:
       - "8000:8000"          # if your app serves an API
     restart: unless-stopped
+    
+  postgres:
+    image: postgres:16
+    container_name: postgres_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: langchain_db
+    ports:
+      - "5432:5432"   # Optional: expose to host for local tools (pgAdmin, DBeaver)
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

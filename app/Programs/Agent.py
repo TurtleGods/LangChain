@@ -1,4 +1,4 @@
-from langchain import LLMChain
+from langchain.chains import LLMChain
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts.chat import(
     ChatPromptTemplate,

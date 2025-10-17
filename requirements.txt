@@ -6,3 +6,7 @@ uvicorn
 langchain-google-genai
 langchain-openai
 langchain-community
+jira
+sqlalchemy 
+psycopg2-binary
+python-dotenv 

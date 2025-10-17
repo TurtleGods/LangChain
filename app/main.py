@@ -1,8 +1,9 @@
 import os
 from app.Programs.Agent import create_chain
+from app.services.ingest_service import ingest_jira_data
 import uvicorn
+from app.models import QueryModel
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 from langchain.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -43,41 +44,25 @@ except Exception as e:
     # If the LLM initialization fails, the service should not start
     raise RuntimeError("Failed to set up LangChain components.")
 
-# --- API Data Models ---
 
-class QueryRequest(BaseModel):
-    """Schema for the incoming request body."""
-    question: str
-    
-class QueryResponse(BaseModel):
-    """Schema for the outgoing response body."""
-    query: str
-    response: str
-class QueryResponse1(BaseModel):
-    response: str
-# --- API Endpoints ---
-class QueryRequest1(BaseModel):
-    input_language: str
-    output_language: str
-    text: str
 @app.get("/")
 async def root():
     """Simple health check endpoint."""
     return {"status": "ok", "service": "LangChain FastAPI is ready to serve queries at /ask"}
-@app.post("/translate", response_model=QueryResponse1)
-async def translate_text(query: QueryRequest1):
+@app.post("/translate", response_model=QueryModel.QueryResponse1)
+async def translate_text(query: QueryModel.QueryRequest1):
     try:
         result = create_chain(
             input_language=query.input_language,
             output_language=query.output_language,
             text=query.text
         )
-        return QueryResponse1(response=result)
+        return QueryModel.QueryResponse1(response=result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM chain failed: {str(e)}")
 
-@app.post("/ask", response_model=QueryResponse)
-async def ask_question(query: QueryRequest):
+@app.post("/ask", response_model=QueryModel.QueryResponse)
+async def ask_question(query: QueryModel.QueryRequest):
     """
     Processes a natural language question using the LangChain LLM.
     """
@@ -85,7 +70,7 @@ async def ask_question(query: QueryRequest):
         # Invoke the chain with the user's question
         result = chain.invoke({"question": query.question})
         
-        return QueryResponse(
+        return QueryModel.QueryResponse(
             query=query.question,
             response=result.strip()
         )
@@ -96,3 +81,5 @@ async def ask_question(query: QueryRequest):
 # This block is only for running the file directly outside of the container
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
+    print("Fetching Jira issues...")
+    ingest_jira_data()
