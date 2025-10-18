@@ -54,7 +54,7 @@ async def fetch_jira_issues():
     Fetches issues from Jira and returns the count.
     """
     try:
-        ingest_jira_data()
+        await ingest_jira_data()
         return {"status": "success", "message": "Jira issues ingested successfully."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to ingest Jira issues: {str(e)}")

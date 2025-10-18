@@ -13,6 +13,7 @@ def get_jira_client():
         raise
 
 def fetch_issues(jql="project = MYPROJECT ORDER BY created DESC", limit=50):
+    print("Fetching issues from Jira...")
     jira = get_jira_client()
     issues = jira.search_issues(jql, maxResults=limit)
     issue_data = []
@@ -25,4 +26,5 @@ def fetch_issues(jql="project = MYPROJECT ORDER BY created DESC", limit=50):
             "assignee": issue.fields.assignee.displayName if issue.fields.assignee else None,
             "created": issue.fields.created,
         })
+    print(f"Fetched {issue_data} issues from Jira.")
     return issue_data
