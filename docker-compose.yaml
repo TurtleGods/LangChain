@@ -10,6 +10,10 @@ services:
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - JIRA_URL=${JIRA_URL}
+      - JIRA_TOKEN=${JIRA_TOKEN}
+      - JIRA_EMAIL=${JIRA_EMAIL}
+      - POSTGRES_URL=postgresql+asyncpg://postgres:postgres@postgres/langchain_db
     ports:
       - "8000:8000"          # if your app serves an API
     restart: unless-stopped

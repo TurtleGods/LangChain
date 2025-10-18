@@ -7,13 +7,11 @@ from fastapi import FastAPI, HTTPException
 from langchain.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_google_genai import ChatGoogleGenerativeAI
-
+from app.config import GOOGLE_API_KEY
 # --- Initialization (Run once on startup) ---
 
 # We assume OPENAI_API_KEY is available in the environment (Docker best practice).
-OPENAI_API_KEY = os.getenv("GOOGLE_API_KEY")
-
-if not OPENAI_API_KEY:
+if not GOOGLE_API_KEY:
     # Raise an exception immediately if the key is missing, preventing server startup
     raise EnvironmentError("GOOGLE_API_KEY environment variable not set. Cannot initialize LLM.")
 
@@ -49,7 +47,7 @@ except Exception as e:
 async def root():
     """Simple health check endpoint."""
     print("Fetching Jira issues...")
-    ingest_jira_data()
+    #ingest_jira_data()
     return {"status": "ok", "service": "LangChain FastAPI is ready to serve queries at /ask"}
 @app.post("/translate", response_model=QueryModel.QueryResponse1)
 async def translate_text(query: QueryModel.QueryRequest1):
@@ -62,7 +60,17 @@ async def translate_text(query: QueryModel.QueryRequest1):
         return QueryModel.QueryResponse1(response=result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM chain failed: {str(e)}")
-
+@app.get("/jira")
+async def fetch_jira_issues():
+    """
+    Fetches issues from Jira and returns the count.
+    """
+    try:
+        ingest_jira_data()
+        return {"status": "success", "message": "Jira issues ingested successfully."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to ingest Jira issues: {str(e)}")
+    
 @app.post("/ask", response_model=QueryModel.QueryResponse)
 async def ask_question(query: QueryModel.QueryRequest):
     """
@@ -83,5 +91,3 @@ async def ask_question(query: QueryModel.QueryRequest):
 # This block is only for running the file directly outside of the container
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
-    print("Fetching Jira issues...")
-    ingest_jira_data()
