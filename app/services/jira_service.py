@@ -3,12 +3,14 @@ import os
 from app.config import JIRA_URL, JIRA_TOKEN, JIRA_EMAIL
 
 def get_jira_client():
-    print("I am now in get_jira_client")
-    print(JIRA_EMAIL)
-    return JIRA(
-        server=JIRA_URL,
-        basic_auth=(JIRA_EMAIL, JIRA_TOKEN)
-    )
+    try:
+        return JIRA(
+            server=JIRA_URL,
+            basic_auth=(JIRA_EMAIL, JIRA_TOKEN)
+        )
+    except Exception as e:
+        print(f"Error connecting to Jira: {e}")
+        raise
 
 def fetch_issues(jql="project = MYPROJECT ORDER BY created DESC", limit=50):
     jira = get_jira_client()

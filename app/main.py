@@ -1,10 +1,8 @@
-import os
-from app.Programs.Agent import create_chain
 from app.services.ingest_service import ingest_jira_data
 import uvicorn
 from app.models import QueryModel
 from fastapi import FastAPI, HTTPException
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_google_genai import ChatGoogleGenerativeAI
 from app.config import GOOGLE_API_KEY
@@ -49,17 +47,7 @@ async def root():
     print("Fetching Jira issues...")
     #ingest_jira_data()
     return {"status": "ok", "service": "LangChain FastAPI is ready to serve queries at /ask"}
-@app.post("/translate", response_model=QueryModel.QueryResponse1)
-async def translate_text(query: QueryModel.QueryRequest1):
-    try:
-        result = create_chain(
-            input_language=query.input_language,
-            output_language=query.output_language,
-            text=query.text
-        )
-        return QueryModel.QueryResponse1(response=result)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"LLM chain failed: {str(e)}")
+
 @app.get("/jira")
 async def fetch_jira_issues():
     """

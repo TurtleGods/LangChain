@@ -14,6 +14,7 @@ def create_table_if_not_exists():
         """))
 
 def insert_issues_json(issues):
+    print("insert_issues_json called")
     with engine.begin() as conn:
         for issue in issues:
             conn.execute(
