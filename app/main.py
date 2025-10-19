@@ -86,7 +86,18 @@ async def ask_question(query: QueryModel.QueryRequest):
     except Exception as e:
         # Catch exceptions during chain invocation (e.g., API errors)
         raise HTTPException(status_code=500, detail=f"LLM chain failed: {e}")
-
+@app.get("/seed")
+async def seed_database():
+    """
+    Seeds the database with initial data from the seed JSON file.
+    """
+    try:
+        from app.services.db_service import seed_data
+        await seed_data()
+        return {"status": "success", "message": "Database seeded successfully."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to seed database: {str(e)}")
+    
 # This block is only for running the file directly outside of the container
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

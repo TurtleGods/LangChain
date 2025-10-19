@@ -6,6 +6,13 @@ import json
 engine = create_async_engine(POSTGRES_URL)
 Base = declarative_base()
 
+
+async def seed_data():
+    # 1. Read JSON file
+    with open("app/seed/seed.json", "r", encoding="utf-8") as f:
+        issues = json.load(f)
+    await insert_issues_json(issues)
+    
 async def create_schema_and_table():
     async with engine.begin() as conn:
         await conn.execute(text("""
