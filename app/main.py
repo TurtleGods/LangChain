@@ -1,3 +1,4 @@
+from app.controller import openai_controller
 from app.services.db_service import select_all_issues
 from app.services.ingest_service import ingest_jira_data
 import uvicorn
@@ -7,6 +8,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_google_genai import ChatGoogleGenerativeAI
 from app.config import GOOGLE_API_KEY
+
 # --- Initialization (Run once on startup) ---
 
 # We assume OPENAI_API_KEY is available in the environment (Docker best practice).
@@ -20,6 +22,7 @@ app = FastAPI(
     description="A simple, containerized API to run a LangChain chat prompt.",
     version="1.0.0"
 )
+app.include_router(openai_controller.router)
 
 # Initialize the LLM and Chain globally
 try:
