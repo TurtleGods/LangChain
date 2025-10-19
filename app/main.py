@@ -46,7 +46,6 @@ except Exception as e:
 async def root():
     """Simple health check endpoint."""
     print("Fetching Jira issues...")
-    #ingest_jira_data()
     return {"status": "ok", "service": "LangChain FastAPI is ready to serve queries at /ask"}
 
 @app.get("/jira")
