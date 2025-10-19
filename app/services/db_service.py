@@ -6,6 +6,16 @@ import json
 engine = create_async_engine(POSTGRES_URL)
 Base = declarative_base()
 
+async def create_schema_and_table():
+    async with engine.begin() as conn:
+        await conn.execute(text("CREATE SCHEMA IF NOT EXISTS langchain_db;"))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS public.jira_issues (
+                id SERIAL PRIMARY KEY,
+                issue_key TEXT UNIQUE NOT NULL,
+                data JSONB NOT NULL
+            );
+        """))
 
 async def select_all_issues():
     async with engine.connect() as conn:
@@ -19,6 +29,7 @@ async def select_all_issues():
 async def insert_issues_json(issues):
     print("insert_issues_json called")
     # Call before inserting
+    await create_schema_and_table()
     done_issues = [i for i in issues if i["status"] == "Done"]
     async with engine.begin() as conn:
         for issue in done_issues:
