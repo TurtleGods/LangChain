@@ -1,3 +1,4 @@
+from app.services.db_service import select_all_issues
 from app.services.ingest_service import ingest_jira_data
 import uvicorn
 from app.models import QueryModel
@@ -58,6 +59,17 @@ async def fetch_jira_issues():
         return {"status": "success", "message": "Jira issues ingested successfully."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to ingest Jira issues: {str(e)}")
+
+@app.get("/jira/show")
+async def show_jira_issues():
+    """
+    Fetches and displays all Jira issues from the database.
+    """
+    try:
+        await select_all_issues()
+        return {"status": "success", "message": "Jira issues displayed successfully."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to display Jira issues: {str(e)}")
     
 @app.post("/ask", response_model=QueryModel.QueryResponse)
 async def ask_question(query: QueryModel.QueryRequest):

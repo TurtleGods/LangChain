@@ -5,15 +5,23 @@ from app.config import POSTGRES_URL
 import json
 engine = create_async_engine(POSTGRES_URL)
 Base = declarative_base()
-def create_table_if_not_exists():
+async def create_table_if_not_exists():
     with engine.begin() as conn:
-        conn.execute(text("""
+        await conn.execute(text("""
         CREATE TABLE IF NOT EXISTS jira_issues (
             id SERIAL PRIMARY KEY,
             data JSONB
         );
         """))
-        
+
+async def select_all_issues():
+    async with engine.connect() as conn:
+        result = await conn.execute(text("SELECT id, data FROM data.jira_issues"))
+        rows = result.fetchall()
+        for row in rows:
+            print(f"ID: {row.id}")
+            print(json.dumps(row.data, ensure_ascii=False, indent=2))
+        print(f"✅ {len(rows)} rows selected.") 
 
 async def insert_issues_json(issues):
     print("insert_issues_json called")
