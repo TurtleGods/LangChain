@@ -1,4 +1,4 @@
-from app.controller import jira_controller, openai_controller
+from app.controller import jira_controller, googleai_controller
 import uvicorn
 from fastapi import FastAPI, HTTPException
 
@@ -8,7 +8,7 @@ app = FastAPI(
     description="A simple, containerized API to run a LangChain chat prompt.",
     version="1.0.0"
 )
-app.include_router(openai_controller.router)
+app.include_router(googleai_controller.router)
 app.include_router(jira_controller.router)
 
 @app.get("/")

@@ -2,10 +2,10 @@ from sqlalchemy import  text
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.ext.declarative import declarative_base
 from app.config import POSTGRES_URL
+from langchain_community.utilities import SQLDatabase
 import json
 engine = create_async_engine(POSTGRES_URL)
 Base = declarative_base()
-
 
 async def seed_data():
     # 1. Read JSON file
@@ -47,4 +47,3 @@ async def insert_issues_json(issues):
                     """),
                     {"key": issue["key"], "data": json_data} 
         )
-
