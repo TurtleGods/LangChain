@@ -12,19 +12,56 @@ def get_jira_client():
         print(f"Error connecting to Jira: {e}")
         raise
 
-def fetch_issues(jql="project = MYPROJECT ORDER BY created DESC", limit=50):
+def fetch_issues(jql="project = 問題及需求回報區 ORDER BY created DESC", fields=None):
     print("Fetching issues from Jira...")
     jira = get_jira_client()
-    issues = jira.search_issues(jql, maxResults=limit)
-    issue_data = []
-    for issue in issues:
-        issue_data.append({
+    if fields is None:
+        # pick only the fields you need to reduce payload size
+        fields = ["key", "summary", "description", "status", "assignee", "created"]
+
+    # Ask the client to fetch ALL pages in batches by using maxResults=0
+    # (the client uses a default batch internally).
+    issues_result = jira.enhanced_search_issues(
+        jql_str=jql,
+        maxResults=0,           # 0/False -> fetch everything in batches
+        fields=fields,
+        json_result=False,      # returns a ResultList of Issue resources
+        use_post=True           # optional: use POST if your JQL is long
+    )
+
+    # issues_result is an iterable (ResultList) of Issue resources.
+    issues = []
+    for issue in issues_result:
+        issues.append({
             "key": issue.key,
-            "summary": issue.fields.summary,
-            "description": issue.fields.description,
-            "status": issue.fields.status.name,
-            "assignee": issue.fields.assignee.displayName if issue.fields.assignee else None,
-            "created": issue.fields.created,
+            "summary": getattr(issue.fields, "summary", None),
+            "description": getattr(issue.fields, "description", None),
+            "status": getattr(issue.fields.status, "name", None) if issue.fields and getattr(issue.fields, "status", None) else None,
+            "assignee": getattr(issue.fields.assignee, "displayName", None) if issue.fields and getattr(issue.fields, "assignee", None) else None,
+            "created": getattr(issue.fields, "created", None),
         })
-    print(f"Fetched {issue_data} issues from Jira.")
-    return issue_data
+
+    return issues
+
+def fetch_all_issues(jira, jql, batch_size=100):
+    start_at = 0
+    all_issues = []
+
+    while True:
+        batch = jira.search_issues(
+            jql,
+            startAt=start_at,
+            maxResults=batch_size
+        )
+        if not batch:
+            break
+
+        all_issues.extend(batch)
+        start_at += len(batch)
+
+        print(f"Fetched {len(all_issues)} issues so far...")
+
+        if len(batch) < batch_size:
+            break  # no more issues
+
+    return all_issues

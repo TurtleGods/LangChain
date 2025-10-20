@@ -5,7 +5,7 @@ from fastapi import APIRouter
 
 router = APIRouter(prefix="/jira", tags=["jira"])
 
-@router.get("/")
+@router.put("/")
 async def fetch_jira_issues():
     """
     Fetches issues from Jira and returns the count.

@@ -35,7 +35,8 @@ async def select_all_issues():
 async def insert_issues_json(issues):
     # Call before inserting
     await create_schema_and_table()
-    done_issues = [i for i in issues if i["status"] == "Done"]
+    done_issues = [i for i in issues if i["status"] == "完成"]
+    print(done_issues)
     async with engine.begin() as conn:
         for issue in done_issues:
             json_data = json.dumps(issue, ensure_ascii=False)
