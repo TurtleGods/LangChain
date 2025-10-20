@@ -1,3 +1,4 @@
+from app.services.db_service import load_jira_issues
 from jira import JIRA
 import os 
 from app.config import JIRA_URL, JIRA_TOKEN, JIRA_EMAIL
@@ -39,29 +40,9 @@ def fetch_issues(jql="project = 問題及需求回報區 ORDER BY created DESC",
             "status": getattr(issue.fields.status, "name", None) if issue.fields and getattr(issue.fields, "status", None) else None,
             "assignee": getattr(issue.fields.assignee, "displayName", None) if issue.fields and getattr(issue.fields, "assignee", None) else None,
             "created": getattr(issue.fields, "created", None),
+            "comments": [comment.body for comment in jira.comments(issue.key)]
         })
-
     return issues
 
-def fetch_all_issues(jira, jql, batch_size=100):
-    start_at = 0
-    all_issues = []
-
-    while True:
-        batch = jira.search_issues(
-            jql,
-            startAt=start_at,
-            maxResults=batch_size
-        )
-        if not batch:
-            break
-
-        all_issues.extend(batch)
-        start_at += len(batch)
-
-        print(f"Fetched {len(all_issues)} issues so far...")
-
-        if len(batch) < batch_size:
-            break  # no more issues
-
-    return all_issues
+def load_jira_issues_from_db():
+    return load_jira_issues()

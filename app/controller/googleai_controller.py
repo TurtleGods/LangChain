@@ -1,4 +1,5 @@
 from http.client import HTTPException
+from app.Programs.Chroma import run_qa
 from app.models import QueryModel
 from fastapi import APIRouter
 from app.services.db_service import select_all_issues
@@ -49,7 +50,8 @@ async def ask_question(query: QueryModel.QueryRequest):
         # )
         # result = agent_executor.run("List all Jira issues where status is 'To Do'")
         # Invoke the chain with the user's question
-        result = chain.invoke({"question": query.question})
+        qachain = run_qa()
+        result = qachain.invoke({"question": query.question})
         
         return QueryModel.QueryResponse(
             query=query.question,

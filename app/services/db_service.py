@@ -48,3 +48,9 @@ async def insert_issues_json(issues):
                     """),
                     {"key": issue["key"], "data": json_data} 
         )
+
+async def load_jira_issues():
+    async with engine.connect() as conn:
+        result = await conn.execute(text("SELECT data FROM jira_issues"))
+        rows = result.fetchall()
+        return [json.dumps(r[0], ensure_ascii=False) for r in rows]
