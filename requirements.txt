@@ -11,3 +11,7 @@ sqlalchemy
 psycopg2-binary
 python-dotenv 
 asyncpg
+chromadb
+google-generativeai
+langchain-core
+pydantic

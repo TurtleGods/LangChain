@@ -1,38 +1,63 @@
 import asyncio
+import json
 from app.services.db_service import load_jira_issues
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-from langchain_community.vectorstores import Chroma
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.vectorstores import Chroma
 from langchain_core.prompts.chat import(
     ChatPromptTemplate
 )
-from sqlalchemy.ext.asyncio import create_async_engine
-from langchain_core.output_parsers import StrOutputParser
+from langchain.schema import Document
+from langchain.chains import LLMChain
 
-
-def run_qa():
-    # --- LLM & embeddings ---
+def run_qa(question: str):
+    # Load LLM
     llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
+
+    # Load or create embeddings
     embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
 
-    # --- Prepare text documents ---
-    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-    issues_json = load_jira_issues()
-    docs = splitter.create_documents(issues_json)
+    # Load Chroma (if exists)
+    vectordb = Chroma(persist_directory="./chroma_db", embedding_function=embeddings)
 
-    # --- Create retriever (vectorstore) ---
-    vectorstore = Chroma.from_documents(docs, embedding=embeddings)
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
+    # If the vectorstore is empty, rebuild it
+    if len(vectordb.get()["ids"]) == 0:
+        issues = load_jira_issues()
+        vectordb = build_chroma(issues)
 
-    # --- Create chain ---
+    # Retrieve relevant issues
+    retriever = vectordb.as_retriever(search_kwargs={"k": 5})
+    relevant_docs = retriever.get_relevant_documents(question)
+
+    # Combine retrieved text
+    context = "\n\n".join([doc.page_content for doc in relevant_docs])
+
+    # System and user prompts
     system_prompt = (
-        "You are a backend engineer analyzing Jira issues stored in PostgreSQL. "
-        "Use the Jira data to answer user questions precisely."
+        "You are a professional backend engineer skilled in databases and API development. "
+        "Use the following Jira issues data to answer user questions accurately. "
+        "If something is unclear or missing, mention it explicitly."
     )
+
     prompt = ChatPromptTemplate.from_messages([
         ("system", system_prompt),
-        ("user", "{question}")
+        ("user", "Context:\n{context}\n\nQuestion: {question}")
     ])
-    chain = prompt | llm | StrOutputParser()
 
-    return chain
+    chain = LLMChain(llm=llm, prompt=prompt)
+    response = chain.run(context=context, question=question)
+
+    return response
+
+def build_chroma(issues):
+    # Convert issues into LangChain Document objects
+    docs = []
+    for issue in issues:
+        content = json.dumps(issue, ensure_ascii=False)
+        metadata = {"key": issue.get("key"), "summary": issue.get("summary")}
+        docs.append(Document(page_content=content, metadata=metadata))
+
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+    vectordb = Chroma.from_documents(docs, embedding=embeddings, persist_directory="./chroma_db")
+    vectordb.persist()
+    return vectordb
