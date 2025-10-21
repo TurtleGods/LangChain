@@ -1,10 +1,9 @@
 from http.client import HTTPException
-from app.Programs.Agent import create_chain
 from app.models import QueryModel
 from fastapi import APIRouter
 from app.services.db_service import select_all_issues
 from app.config import POSTGRES_URL
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_genai import ChatGoogleGenerativeA
 router = APIRouter(prefix="/googleAI", tags=["googleAI"])
 
 
@@ -27,7 +26,8 @@ async def ask_question(query: QueryModel.QueryRequest):
         # result = agent_executor.run("List all Jira issues where status is 'To Do'")
         # Invoke the chain with the user's question
         #qachain = run_qa()
-        result = create_chain("English", "English", query.question)
+        result = "123"
+        #create_chain("English", "English", query.question)
         #run_qa(query.question)
         return QueryModel.QueryResponse(
             query=query.question,
