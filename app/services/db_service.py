@@ -50,7 +50,10 @@ async def insert_issues_json(issues):
         )
 
 async def load_jira_issues():
+    print("Loading jira issues from DB")
     async with engine.connect() as conn:
         result = await conn.execute(text("SELECT data FROM jira_issues"))
         rows = result.fetchall()
-        return [json.dumps(r[0], ensure_ascii=False) for r in rows]
+        issues = [r[0] if isinstance(r[0], dict) else json.loads(r[0]) for r in rows]
+
+        return issues  # return as Python list of dicts

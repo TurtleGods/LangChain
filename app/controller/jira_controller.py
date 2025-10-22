@@ -26,4 +26,3 @@ async def show_jira_issues():
         return {"status": "success", "message": "Jira issues displayed successfully."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to display Jira issues: {str(e)}")
-    
