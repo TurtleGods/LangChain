@@ -20,7 +20,7 @@ async def run_qa(question: str):
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0,openai_api_key=OPENAI_API_KEY)
 
     # # Load or create embeddings
-    embeddings = OpenAIEmbeddings(model="models/embedding-001")
+    embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 
     # # # Load Chroma (if exists)
     vectordb = Chroma(persist_directory="./chroma_db", embedding_function=embeddings)
@@ -48,8 +48,8 @@ async def run_qa(question: str):
         ("user", "Context:\n{context}\n\nQuestion: {question}")
     ])
 
-    chain = LLMChain(llm=llm, prompt=prompt)
-    response = chain.run(context=context, question=question)
+    chain = prompt | llm
+    response = await chain.ainvoke({"context": context, "question": question})
     return response
 
 def build_chroma(issues):

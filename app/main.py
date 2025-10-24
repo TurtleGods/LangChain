@@ -1,4 +1,4 @@
-from app.controller import jira_controller, googleai_controller
+from app.controller import jira_controller, googleai_controller, openai_controller
 import uvicorn
 from fastapi import FastAPI, HTTPException
 
@@ -10,6 +10,7 @@ app = FastAPI(
 )
 app.include_router(googleai_controller.router)
 app.include_router(jira_controller.router)
+app.include_router(openai_controller.router)
 
 @app.get("/")
 async def root():
