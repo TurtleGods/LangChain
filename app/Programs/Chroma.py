@@ -1,18 +1,15 @@
-import asyncio
-import json
+
 import os
 from app.config import GOOGLE_API_KEY, OPENAI_API_KEY
-from app.services.db_service import load_jira_issues, select_all_issues
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from app.services.db_service import load_jira_issues
 from langchain_openai import ChatOpenAI
 from langchain.vectorstores import Chroma
 from langchain_core.prompts.chat import(
     ChatPromptTemplate
 )
 from langchain.schema import Document
-from langchain.chains import LLMChain
 from langchain_openai import OpenAIEmbeddings
-
+import re
 
 async def run_qa(question: str):
     print("inRun_QA")
@@ -30,8 +27,16 @@ async def run_qa(question: str):
         issues =await load_jira_issues()
         vectordb = build_chroma(issues)
     # # # Retrieve relevant issues
-    retriever = vectordb.as_retriever(search_kwargs={"k": 5})
-    relevant_docs = retriever.get_relevant_documents(question)
+    retriever = vectordb.as_retriever(    search_type="similarity_score_threshold",search_kwargs={'score_threshold': 0.8})
+    issue_key = extract_issue_key(question)
+    if issue_key:
+        relevant_docs = vectordb.similarity_search(
+        query=question,
+        k=5,
+        filter={"key": issue_key}   # ✅ filter by metadata
+    )
+    else:
+        relevant_docs = retriever.get_relevant_documents(question)
 
     # # # Combine retrieved text
     context = "\n\n".join([doc.page_content for doc in relevant_docs])
@@ -98,3 +103,8 @@ def build_chroma(issues):
     vectordb.persist()
     print(f"✅ Built Chroma vector DB with {len(docs)} documents.")
     return vectordb
+
+
+def extract_issue_key(question: str):
+    match = re.search(r"[A-Z]+-\d+", question, re.IGNORECASE)
+    return match.group(0).upper() if match else None
