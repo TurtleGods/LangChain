@@ -7,8 +7,11 @@ class QueryRequest(BaseModel):
     
 class QueryResponse(BaseModel):
     """Schema for the outgoing response body."""
-    query: str
-    response: str
+    id: str
+    senderId: str
+    senderDisplayName: str
+    content: str
+    response:str
 class QueryResponse1(BaseModel):
     response: str
 # --- API Endpoints ---

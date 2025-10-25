@@ -11,7 +11,8 @@ async def ask_question(query: QueryModel.QueryRequest):
     try:
         result= await run_qa(query.question)
         return QueryModel.QueryResponse(
-            query=query.question,
+            senderId="OpenAI",
+            senderDisplayName="OpenAI",
             response=result.content
         )
     except Exception as e:
