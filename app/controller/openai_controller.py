@@ -3,6 +3,7 @@ from app.Programs.Chroma import run_qa
 from fastapi import APIRouter,HTTPException
 router = APIRouter(prefix="/openAI", tags=["openAI"])
 
+
 @router.post("/ask", response_model=QueryModel.QueryResponse)
 async def ask_question(query: QueryModel.QueryRequest):
     """
@@ -13,7 +14,7 @@ async def ask_question(query: QueryModel.QueryRequest):
         return QueryModel.QueryResponse(
             senderId="OpenAI",
             senderDisplayName="OpenAI",
-            response=result.content
+            content=result.content
         )
     except Exception as e:
         # Catch exceptions during chain invocation (e.g., API errors)

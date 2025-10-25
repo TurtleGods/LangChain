@@ -3,10 +3,11 @@ services:
   langchain:
     build: .
     container_name: langchain_app
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000","--reload"] 
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000","--reload","--ssl-keyfile","/ssl/localhost-key.pem","--ssl-certfile","/ssl/localhost.pem"] 
     volumes:
       - ./app:/app/app       # Mount your code for live edits
       - ./requirements.txt:/app/requirements.txt
+      - ./ssl:/ssl:ro    
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}

@@ -11,8 +11,15 @@ from langchain.schema import Document
 from langchain_openai import OpenAIEmbeddings
 import re
 
-async def run_qa(question: str):
-    print("inRun_QA")
+
+chat_history = []
+
+async def run_qa(question: str, reset: bool = False):
+    global chat_history
+
+    # Reset chat if needed
+    if reset:
+        chat_history = []
     # Load LLM
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0,openai_api_key=OPENAI_API_KEY)
 
