@@ -36,10 +36,12 @@ async def run_qa(question: str, reset: bool = False):
         issues =await load_jira_issues()
         vectordb = build_chroma(issues, embeddings)
     # # # Retrieve relevant issues
-    retriever = vectordb.as_retriever(    search_type="similarity_score_threshold",search_kwargs={'score_threshold': 0.3})
+    retriever = vectordb.as_retriever(search_type="similarity_score_threshold",search_kwargs={'score_threshold': 0.3})
     issue_key = extract_issue_key(question)
+    print("Extracted issue key:", issue_key, "Current issue key:", current_issue_key)
     if issue_key and issue_key != current_issue_key:
         # 👉 新的 issue，清空對話記錄
+        print("New issue key detected, resetting chat history.")
         chat_history = []
         current_issue_key = issue_key
 
@@ -69,8 +71,8 @@ async def run_qa(question: str, reset: bool = False):
 
     chain = prompt | llm
     result = await chain.ainvoke({
-        "context": context,
         "question": question,
+        "context": context,
         "history": chat_history
         })
     chat_history.append(("user", question))
@@ -90,7 +92,12 @@ def build_chroma(issues, embeddings):
         description = issue.get("description", "")
         status = issue.get("status", "")
         assignee = issue.get("assignee", "")
-        comments = "\n".join(issue.get("comments", [])) if issue.get("comments") else ""
+        comments = ""
+        if issue.get("comments"):
+            comments = "\n".join(
+            f"{c.get('author', 'Unknown')} ({c.get('created', '')}): {c.get('body', '')}"
+            for c in issue["comments"]
+        )
 
         # Combine text fields into a readable body for embedding
         content = (

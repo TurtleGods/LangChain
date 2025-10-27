@@ -18,7 +18,7 @@ def fetch_issues(jql="project = 問題及需求回報區 ORDER BY created DESC",
     jira = get_jira_client()
     if fields is None:
         # pick only the fields you need to reduce payload size
-        fields = ["key", "summary", "description", "status", "assignee", "created"]
+        fields = ["key", "summary", "description", "status", "assignee", "created","comment"]
 
     # Ask the client to fetch ALL pages in batches by using maxResults=0
     # (the client uses a default batch internally).
@@ -32,6 +32,7 @@ def fetch_issues(jql="project = 問題及需求回報區 ORDER BY created DESC",
 
     # issues_result is an iterable (ResultList) of Issue resources.
     issues = []
+
     for issue in issues_result:
         issues.append({
             "key": issue.key,
@@ -40,7 +41,13 @@ def fetch_issues(jql="project = 問題及需求回報區 ORDER BY created DESC",
             "status": getattr(issue.fields.status, "name", None) if issue.fields and getattr(issue.fields, "status", None) else None,
             "assignee": getattr(issue.fields.assignee, "displayName", None) if issue.fields and getattr(issue.fields, "assignee", None) else None,
             "created": getattr(issue.fields, "created", None),
-            "comments": [comment.body for comment in jira.comments(issue.key)]
+            "comments": [{
+                "author": comment.author.displayName,
+                "body": comment.body,
+                "created": comment.created
+            }
+            for comment in jira.comments(issue.key)
+            ]
         })
     return issues
 
