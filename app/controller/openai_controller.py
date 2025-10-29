@@ -14,7 +14,7 @@ async def ask_question(query: QueryModel.QueryRequest):
         return QueryModel.QueryResponse(
             senderId="OpenAI",
             senderDisplayName="OpenAI",
-            content=result.content
+            content=result
         )
     except Exception as e:
         # Catch exceptions during chain invocation (e.g., API errors)
