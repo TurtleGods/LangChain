@@ -36,18 +36,25 @@ async def insert_issues_json(issues):
     # Call before inserting
     await create_schema_and_table()
     done_issues = [i for i in issues if i["status"] == "完成"]
-    print(done_issues)
     async with engine.begin() as conn:
         for issue in done_issues:
             json_data = json.dumps(issue, ensure_ascii=False)
             await conn.execute(
                 text("""
-                        INSERT INTO jira_issues (issue_key, data)
-                        VALUES (:key, CAST(:data AS jsonb))
-                        ON CONFLICT (issue_key) DO NOTHING;
-                    """),
-                    {"key": issue["key"], "data": json_data} 
-        )
+                    INSERT INTO jira_issues 
+                    (key, summary, description, status, assignee, created, data) 
+                    VALUES (:key, :summary, :description, :status, :assignee, :created, :data)
+                """),
+                {
+                    "key": issue["key"],
+                    "summary": issue.get("summary"),
+                    "description": issue.get("description"),
+                    "status": issue.get("status"),
+                    "assignee": issue.get("assignee"),
+                    "created": issue.get("created"),
+                    "data": json_data
+                }        
+            )
 
 async def load_jira_issues():
     print("Loading jira issues from DB")

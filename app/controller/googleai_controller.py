@@ -29,10 +29,10 @@ async def ask_question(query: QueryModel.QueryRequest):
         # Invoke the chain with the user's question
         #qachain = run_qa()
         #result=create_chain("Chinese", "English", query.question)
-        result= await run_qa(query.question)
+        answer, source= await run_qa(query.question)
         return QueryModel.QueryResponse(
             query=query.question,
-            response=result.strip()
+            response=answer
         )
     except Exception as e:
         # Catch exceptions during chain invocation (e.g., API errors)
