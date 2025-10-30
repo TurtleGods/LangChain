@@ -19,6 +19,30 @@ import re
 
 
 async def run_qa(question: str):
+    qa_system_prompt = """
+        You are a Jira issue assistant. You have access to Jira issues with fields:
+        key, summary, description, status, assignee, created, comments (author, body, created).
+
+        Rules:
+        1. If the user asks about a specific issue key (e.g. YTHG-830), return its details (summary, description, comments).
+        2. If the user asks for "similar" issues, retrieve semantically related cases using the key's summary/description.
+        3. If the user asks about conditions (e.g. salary settlement, resignation, comments with solutions), 
+        retrieve relevant issues and filter results accordingly. Summarize if comments contain solutions.
+        4. If the user asks to "list all" related issues, enumerate all matching issues with their keys and summaries.
+        5. Always keep conversation history in mind for follow-up questions.
+        6. If nothing relevant is found, say so clearly.
+
+        Context:
+        {context}
+
+        Question:
+        {question}
+    """
+
+    prompt = PromptTemplate(
+        input_variables=["context", "question"],
+        template=qa_system_prompt,
+    )
     # LLM
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, openai_api_key=OPENAI_API_KEY)
     embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
@@ -26,11 +50,22 @@ async def run_qa(question: str):
     if len(vectordb.get()["ids"]) == 0:
         issues = await load_jira_issues()
         vectordb = build_chroma(issues, embeddings)
-    retriever = vectordb.as_retriever(search_type="similarity", search_kwargs={"k": 5})
-    default_chain = ConversationalRetrievalChain.from_llm(llm, retriever, return_source_documents=True)
-    result = await router_chain(question, default_chain)
+    retriever = vectordb.as_retriever(search_type="similarity", search_kwargs={"k": 10})
+    # default_chain = ConversationalRetrievalChain.from_llm(
+    #     llm,
+    #     retriever, 
+    #     combine_docs_chain_kwargs={"prompt": prompt},
+    #     return_source_documents=True)
+    qa = ConversationalRetrievalChain.from_llm(
+        llm,
+        retriever,   # 你的 Chroma retriever
+        combine_docs_chain_kwargs={"prompt": prompt},
+        return_source_documents=True
+    )
+    result = await qa.ainvoke({"question": question, "chat_history": []})
+    # result = await router_chain(question, default_chain)
 
-    return result
+    return result["answer"]
 
 def build_chroma(issues, embeddings):
     texts = []
