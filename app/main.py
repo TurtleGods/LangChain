@@ -21,7 +21,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.include_router(googleai_controller.router)
+
 app.include_router(jira_controller.router)
 app.include_router(openai_controller.router)
 
