@@ -31,7 +31,12 @@ async def run_qa(question: str):
         4. If the user asks to "list all" related issues, enumerate all matching issues with their keys and summaries.
         5. Always keep conversation history in mind for follow-up questions.
         6. If nothing relevant is found, say so clearly.
-
+        7. Answer in Traditional Chinese.
+        8. If nothing relevant is found:
+            - If the query contains an issue key like YTHG-830, respond exactly as:
+                "找不到該 {issue_key} 的 Jira Issue"
+            - Otherwise say: "找不到相關的 Jira Issue"
+        
         Context:
         {context}
 
@@ -40,7 +45,7 @@ async def run_qa(question: str):
     """
 
     prompt = PromptTemplate(
-        input_variables=["context", "question"],
+        input_variables=["context", "question","issue_key"],
         template=qa_system_prompt,
     )
     # LLM
@@ -51,21 +56,18 @@ async def run_qa(question: str):
         issues = await load_jira_issues()
         vectordb = build_chroma(issues, embeddings)
     retriever = vectordb.as_retriever(search_type="similarity", search_kwargs={"k": 10})
-    # default_chain = ConversationalRetrievalChain.from_llm(
-    #     llm,
-    #     retriever, 
-    #     combine_docs_chain_kwargs={"prompt": prompt},
-    #     return_source_documents=True)
-    qa = ConversationalRetrievalChain.from_llm(
+    default_chain = ConversationalRetrievalChain.from_llm(
         llm,
-        retriever,   # 你的 Chroma retriever
+        retriever, 
         combine_docs_chain_kwargs={"prompt": prompt},
-        return_source_documents=True
-    )
-    result = await qa.ainvoke({"question": question, "chat_history": []})
-    # result = await router_chain(question, default_chain)
-
-    return result["answer"]
+        return_source_documents=True)
+    issue_key=re.search(r"[A-Z]+-\d+", question).group(0)
+    result = await default_chain.ainvoke({"question": question,"issue_key":issue_key ,"chat_history": []})
+    result = result["answer"]
+    if '找不到' in result:
+        print("⚠️ Fallback to RouterChain")
+        result = await router_chain(question, default_chain)
+    return result
 
 def build_chroma(issues, embeddings):
     texts = []
