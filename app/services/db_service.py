@@ -4,6 +4,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from app.config import POSTGRES_URL
 from langchain_community.utilities import SQLDatabase
 import json
+from datetime import datetime 
 engine = create_async_engine(POSTGRES_URL)
 Base = declarative_base()
 
@@ -18,8 +19,13 @@ async def create_schema_and_table():
         await conn.execute(text("""
             CREATE TABLE IF NOT EXISTS jira_issues (
                 id SERIAL PRIMARY KEY,
-                issue_key TEXT UNIQUE NOT NULL,
-                data JSONB NOT NULL
+                key TEXT,
+                summary TEXT,
+                description TEXT,
+                status TEXT,
+                assignee TEXT,
+                created TIMESTAMPTZ,
+                data JSONB
             );
         """))
 
@@ -51,7 +57,7 @@ async def insert_issues_json(issues):
                     "description": issue.get("description"),
                     "status": issue.get("status"),
                     "assignee": issue.get("assignee"),
-                    "created": issue.get("created"),
+                    "created": datetime.fromisoformat(issue.get("created")),
                     "data": json_data
                 }        
             )
@@ -61,6 +67,26 @@ async def load_jira_issues():
     async with engine.connect() as conn:
         result = await conn.execute(text("SELECT data FROM jira_issues"))
         rows = result.fetchall()
-        issues = [r[0] if isinstance(r[0], dict) else json.loads(r[0]) for r in rows]
 
-        return issues  # return as Python list of dicts
+        issues = []
+        for row in rows:
+            # row[0] 是 JSONB
+            issue = row[0]
+            if isinstance(issue, str):
+                issue = json.loads(issue)
+            issues.append(issue)
+
+        print(f"✅ Loaded {len(issues)} issues from DB")
+        return issues
+
+async def get_issue_by_key(issue_key: str):
+    print(f"Fetching issue {issue_key} from DB")
+    async with engine.begin() as conn:
+        result = await conn.execute(
+            text("SELECT data FROM jira_issues WHERE key = :key"),
+            {"key": issue_key}
+        )
+        row = result.fetchone()
+        if row:
+            return row[0]
+        return None

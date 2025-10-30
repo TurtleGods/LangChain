@@ -1,4 +1,4 @@
-from app.controller import jira_controller, googleai_controller, openai_controller
+from app.controller import jira_controller, openai_controller
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware

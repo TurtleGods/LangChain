@@ -1,4 +1,3 @@
-from app.services.db_service import load_jira_issues
 from jira import JIRA
 import os 
 from app.config import JIRA_URL, JIRA_TOKEN, JIRA_EMAIL
@@ -51,5 +50,3 @@ def fetch_issues(jql="project = 問題及需求回報區 ORDER BY created DESC",
         })
     return issues
 
-def load_jira_issues_from_db():
-    return load_jira_issues()
