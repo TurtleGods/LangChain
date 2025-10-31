@@ -10,7 +10,7 @@ default_chain = None
 
 # --- Router 判斷 ---
 def detect_query_type(question: str):
-    if re.fullmatch(r"[A-Z]+-\d+", question.strip()) or "細節" in question or "內容" in question:
+    if re.fullmatch(r"[A-Z]+-\d+", question.strip(), re.IGNORECASE) or "細節" in question or "內容" in question:
         return "detail"
     if "類似" in question and re.search(r"[A-Z]+-\d+", question):
         return "similarity"
@@ -22,7 +22,7 @@ def detect_query_type(question: str):
 
 #-- 子 Chain --
 
-async def issue_detail_chain( issue_key:str):
+async def issue_detail_chain(issue_key:str):
     issue = await get_issue_by_key(issue_key)
     if not issue:
         return f"❌ 沒有找到 {issue_key} 的細節"
@@ -75,10 +75,10 @@ async def router_chain(question: str, chain):
     print(f"👉 Query type detected: {query_type}")
 
     if query_type == "detail":
-        issue_key = re.search(r"[A-Z]+-\d+", question).group(0)
+        issue_key = re.search(r"[A-Z]+-\d+", question, re.IGNORECASE).group(0).upper()
         result = await issue_detail_chain(issue_key)
     elif query_type == "similarity":
-        issue_key = re.search(r"[A-Z]+-\d+", question).group(0)
+        issue_key = re.search(r"[A-Z]+-\d+", question, re.IGNORECASE).group(0).upper()
         result = await similarity_chain(issue_key)
     elif query_type == "filter":
         result = await filter_chain(question)
@@ -88,4 +88,4 @@ async def router_chain(question: str, chain):
         result = default_chain.invoke({"question": question, "chat_history": chat_history})
 
     chat_history.append((question, result["answer"]))
-    return result["answer"]
+    return result
