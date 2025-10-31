@@ -48,18 +48,18 @@ async def similarity_chain(issue_key:str):
         return  f"❌ 沒找到 {issue_key}"
 
     query_text = f"找和這個 Issue 類似的案例: {issue.get('summary')} {issue.get('description')}"
-    result = default_chain.invoke({"question": query_text, "chat_history": chat_history})
+    result = default_chain.invoke({"question": query_text,"issue_key":issue_key, "chat_history": chat_history})
     return result
 
 
 async def filter_chain(question:str):
     query_text = f"根據jira issues，找出與此問題相關的案例，並確認comment 中是否有解決方法:{question}"
-    result = default_chain.invoke({"question": query_text, "chat_history": chat_history})
+    result = default_chain.invoke({"question": query_text,"issue_key":"",  "chat_history": chat_history})
     return result
 
 async def list_chain(question:str):
     query_text = f"列出所有與以下主題相關的 Jira issues：{question}"
-    result = default_chain.invoke({"question": query_text, "chat_history": chat_history})
+    result = default_chain.invoke({"question": query_text, "issue_key":"", "chat_history": chat_history})
     return result
 
 # --- RouterChain ---
