@@ -47,7 +47,7 @@ async def similarity_chain(issue_key:str):
     if not issue:
         return  f"❌ 沒找到 {issue_key}"
 
-    query_text = f"找和這個 Issue 類似的案例: {issue.get('summary')} {issue.get('description')}"
+    query_text = f"找和這個{issue} Issue 類似的案例: {issue.get('summary')} {issue.get('description')}"
     result = default_chain.invoke({"question": query_text,"issue_key":issue_key, "chat_history": chat_history})
     return result
 
