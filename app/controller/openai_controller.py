@@ -18,4 +18,4 @@ async def ask_question(query: QueryModel.QueryRequest):
         )
     except Exception as e:
         # Catch exceptions during chain invocation (e.g., API errors)
-        raise HTTPException(status_code=500, detail=f"LLM chain failed: {e}")
+        raise HTTPException(status_code=400, error=f"LLM chain failed: {e}")
