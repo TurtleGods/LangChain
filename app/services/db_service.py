@@ -25,6 +25,7 @@ async def create_schema_and_table():
                 status TEXT,
                 assignee TEXT,
                 created TIMESTAMPTZ,
+                updated TIMESTAMPTZ,
                 data JSONB
             );
         """))
@@ -41,15 +42,15 @@ async def select_all_issues():
 async def insert_issues_json(issues):
     # Call before inserting
     await create_schema_and_table()
-    done_issues = [i for i in issues if i["status"] == "完成"]
+    done_issues = issues
     async with engine.begin() as conn:
         for issue in done_issues:
             json_data = json.dumps(issue, ensure_ascii=False)
             await conn.execute(
                 text("""
                     INSERT INTO jira_issues 
-                    (key, summary, description, status, assignee, created, data) 
-                    VALUES (:key, :summary, :description, :status, :assignee, :created, :data)
+                    (key, summary, description, status, assignee, created, updated,data) 
+                    VALUES (:key, :summary, :description, :status, :assignee, :created,:updated, :data)
                 """),
                 {
                     "key": issue["key"],
@@ -58,6 +59,7 @@ async def insert_issues_json(issues):
                     "status": issue.get("status"),
                     "assignee": issue.get("assignee"),
                     "created": datetime.fromisoformat(issue.get("created")),
+                    "updated": datetime.fromisoformat(issue.get("updated")),
                     "data": json_data
                 }        
             )

@@ -34,6 +34,7 @@ async def issue_detail_chain(issue_key:str):
         f"- Status: {issue.get('status')}\n"
         f"- Assignee: {issue.get('assignee')}\n"
         f"- Created: {issue.get('created')}\n"
+        f"- Updated: {issue.get('updated')}\n"
     )
     if issue.get("comments"):
         answer += "\n💬 Comments:\n"
@@ -85,7 +86,7 @@ async def router_chain(question: str, chain):
     elif query_type == "list":
         result = await list_chain(question)
     else:
-        result = default_chain.invoke({"question": question, "chat_history": chat_history})
+        result = default_chain.invoke({"question": question,"issue_key":"", "chat_history": chat_history})
 
     chat_history.append((question, result["answer"]))
     return result

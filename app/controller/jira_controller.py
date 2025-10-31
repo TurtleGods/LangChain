@@ -1,6 +1,6 @@
 from http.client import HTTPException
 from app.services.db_service import select_all_issues
-from app.services.ingest_service import ingest_jira_data
+from app.services.ingest_service import ingest_jira_data, update_jira_data
 from fastapi import APIRouter
 
 router = APIRouter(prefix="/jira", tags=["jira"])
@@ -26,3 +26,11 @@ async def show_jira_issues():
         return {"status": "success", "message": "Jira issues displayed successfully."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to display Jira issues: {str(e)}")
+
+@router.put("/update")
+async def update_jira_issues():
+    try:
+        await update_jira_data()
+        return {"status": "success", "message": "Jira issues updated successfully."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update Jira issues: {str(e)}")

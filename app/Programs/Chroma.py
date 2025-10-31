@@ -15,8 +15,9 @@ from langchain.schema import Document
 from langchain_openai import OpenAIEmbeddings
 from langchain.schema import HumanMessage, AIMessage
 import re
+from tqdm import tqdm
 
-
+embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
 
 async def run_qa(question: str):
     qa_system_prompt = get_system_prompt()
@@ -26,11 +27,10 @@ async def run_qa(question: str):
     )
     # LLM
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, openai_api_key=OPENAI_API_KEY)
-    embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
     vectordb = Chroma(persist_directory="./chroma_db", embedding_function=embeddings)
     
 
-
+    print(len(vectordb.get()["ids"]))
     if len(vectordb.get()["ids"]) == 0:
         issues = await load_jira_issues()
         vectordb = build_chroma(issues, embeddings)
@@ -42,8 +42,13 @@ async def run_qa(question: str):
         combine_docs_chain_kwargs={"prompt": prompt},
         return_source_documents=True)
 
-    issue_key = re.search(r"[A-Z]+-\d+", question, re.IGNORECASE).group(0).upper()
+    issue_key = (
+        re.search(r"[A-Z]+-\d+", question, re.IGNORECASE).group(0).upper()
+        if re.search(r"[A-Z]+-\d+", question, re.IGNORECASE)
+        else None
+        )
 
+    print("Start Operating QA Chain...")
     result = await default_chain.ainvoke({"question": question,"issue_key":issue_key ,"chat_history": []})
     
     if '找不到' in result["answer"]:
@@ -52,9 +57,9 @@ async def run_qa(question: str):
     print(result)
     return result["answer"]
 
-def decide_chain(question: str):
-    return ""
+
 def build_chroma(issues, embeddings):
+    batch_size=50
     texts = []
     metadatas = []
     for issue in issues:
@@ -65,11 +70,46 @@ def build_chroma(issues, embeddings):
         texts.append(text)
         metadatas.append({"key": issue["key"]})
     
-    vectordb = Chroma.from_texts(texts, embeddings, metadatas=metadatas, persist_directory="./chroma_db")
+    vectordb = Chroma(persist_directory="./chroma_db", embedding_function=embeddings)
+    print(f"🧠 Building Chroma in batches of {batch_size}...")
+    for i in tqdm(range(0, len(texts), batch_size)):
+        batch_texts = texts[i:i + batch_size]
+        batch_meta = metadatas[i:i + batch_size]
+        vectordb.add_texts(batch_texts, metadatas=batch_meta)
     vectordb.persist()
     print("✅ Chroma vector DB built and persisted.")
     return vectordb
 
+async def update_chroma(issues):
+    if not issues:
+        print("🟢 No new issues to update in Chroma.")
+        return
+
+    vectordb = Chroma(persist_directory='./chroma_db', embedding_function=embeddings)
+
+    for issue in issues:
+        # 將文字組成一段，方便 embedding
+        text_block = (
+            f"Issue {issue['key']}\n"
+            f"Summary: {issue['summary']}\n"
+            f"Description: {issue['description']}\n"
+            f"Status: {issue['status']}\n"
+            f"Assignee: {issue['assignee']}"
+        )
+
+        if "comments" in issue:
+            for c in issue["comments"]:
+                text_block += f"\nComment by {c['author']} at {c['created']}: {c['body']}"
+
+        # 新增或覆蓋該 issue 的向量資料
+        vectordb.add_texts(
+            texts=[text_block],
+            metadatas=[{"key": issue["key"]}],
+            ids=[issue["key"]],
+        )
+
+    vectordb.persist()
+    print(f"💾 Chroma updated with {len(issues)} new/changed issues.")
 
 # --- 工具函式 ---
 def is_exact_issue_query(question: str) -> str | None:
