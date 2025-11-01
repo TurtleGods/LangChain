@@ -1,6 +1,7 @@
 
+from app.Programs.Agent import classify_query_intent
 from app.models import QueryModel
-from app.Programs.Chroma import classify_query_intent, run_qa
+from app.Programs.Chroma import  run_qa
 from fastapi import APIRouter,HTTPException
 router = APIRouter(prefix="/openAI", tags=["openAI"])
 
@@ -11,7 +12,9 @@ async def ask_question(query: QueryModel.QueryRequest):
     Processes a natural language question using the LangChain LLM.
     """
     try:
-        result= await run_qa(query.question)
+        result = await classify_query_intent(query.question)
+        print(f"Detected intent: {result}")
+        #result= await run_qa(query.question)
         return QueryModel.QueryResponse(
             senderId="OpenAI",
             senderDisplayName="OpenAI",

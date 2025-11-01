@@ -19,6 +19,9 @@ from tqdm import tqdm
 from openai import OpenAI
 
 embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
+# LLM
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, openai_api_key=OPENAI_API_KEY)
+vectordb = Chroma(persist_directory="./chroma_db", embedding_function=embeddings)
 
 async def run_qa(question: str):
     qa_system_prompt = get_system_prompt()
@@ -26,9 +29,7 @@ async def run_qa(question: str):
         input_variables=["context", "question","issue_key"],
         template=qa_system_prompt,
     )
-    # LLM
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, openai_api_key=OPENAI_API_KEY)
-    vectordb = Chroma(persist_directory="./chroma_db", embedding_function=embeddings)
+
     
 
     if len(vectordb.get()["ids"]) == 0:
