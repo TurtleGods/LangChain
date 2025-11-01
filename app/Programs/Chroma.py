@@ -46,7 +46,7 @@ async def run_qa(question: str):
         )
 
     print("Start Operating QA Chain...")
-    result = await default_chain.ainvoke({"question": question,"issue_key":issue_key ,"chat_history": []})
+    result = await default_chain.ainvoke({"question": question,"issue_key":issue_key })
     
     if '找不到' in result["answer"]:
         print("⚠️ Fallback to RouterChain")

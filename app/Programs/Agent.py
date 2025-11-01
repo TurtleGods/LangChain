@@ -18,6 +18,7 @@ class QueryIntent(str, Enum):
     FILTER = "filter"
     LIST = "list"
     DEFAULT = "default"
+    
 def get_llm():
     return llm
 

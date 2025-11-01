@@ -10,7 +10,7 @@ from langchain_core.prompts.chat import(
     PromptTemplate
 )
 default_chain = None
-
+chat_history=[]
 async def issue_detail_chain(issue_key:str):
     issue = await get_issue_by_key(issue_key)
     if not issue:
@@ -74,7 +74,7 @@ async def router_chain(question: str,query_type:str,issue_key):
     elif query_type == "list":
         result = await list_chain(question)
     else:
-        result = default_chain.invoke({"question": question,"issue_key":""})
+        result = default_chain.ainvoke({"question": question,"issue_key":"","chat_history":chat_history})
 
     return result["answer"]
 
@@ -82,7 +82,7 @@ def get_system_prompt()-> str:
     prompt = """
         You are a Jira issue assistant. You have access to Jira issues with fields:
         key, summary, description, status.
-        
+        When possible, include hyperlinks for each issue key (e.g. [YTHG-830](https://mayohumancapital.atlassian.net/browse/YTHG-830)).
         Context:
         {context}
 
