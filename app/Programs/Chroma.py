@@ -21,39 +21,6 @@ embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, openai_api_key=OPENAI_API_KEY)
 _vectordb =  None
 
-async def run_qa(question: str):
-    qa_system_prompt = get_system_prompt()
-    prompt = PromptTemplate(
-        input_variables=["context", "question","issue_key"],
-        template=qa_system_prompt,
-    )
-
-    if len(vectordb.get()["ids"]) == 0:
-        issues = await load_jira_issues()
-        vectordb = build_chroma(issues, embeddings)
-    retriever = vectordb.as_retriever(search_type="similarity", search_kwargs={"k": 10})
-
-    default_chain = ConversationalRetrievalChain.from_llm(
-        llm,
-        retriever, 
-        combine_docs_chain_kwargs={"prompt": prompt},
-        return_source_documents=True)
-
-    issue_key = (
-        re.search(r"[A-Z]+-\d+", question, re.IGNORECASE).group(0).upper()
-        if re.search(r"[A-Z]+-\d+", question, re.IGNORECASE)
-        else None
-        )
-
-    print("Start Operating QA Chain...")
-    result = await default_chain.ainvoke({"question": question,"issue_key":issue_key })
-    
-    if '找不到' in result["answer"]:
-        print("⚠️ Fallback to RouterChain")
-        result = await router_chain(question, default_chain)
-    print(result)
-    return result["answer"]
-
 async def get_chroma():
     global _vectordb
     if _vectordb is not None:
@@ -116,32 +83,3 @@ async def update_chroma(issues):
 
     vectordb.persist()
     print(f"💾 Chroma updated with {len(issues)} new/changed issues.")
-
-# --- 工具函式 ---
-def is_exact_issue_query(question: str) -> str | None:
-    print("Checking for exact issue query...")
-    match = re.findall(r"[A-Z]+-\d+", question)
-    if len(match) == 1:
-        keywords = ["細節", "內容", "詳細", "資訊"]
-        if any(kw in question for kw in keywords) or question.strip() == match[0]:
-            return match[0]
-    return None
-
-def extract_issue_key(question: str) -> str | None:
-    match = re.findall(r"[A-Z]+-\d+", question)
-    return match[0] if match else None
-
-
-def get_system_prompt()-> str:
-    prompt = """
-        You are a Jira issue assistant. You have access to Jira issues with fields:
-        key, summary, description, status.
-        
-        Context:
-        {context}
-
-        Question:
-        {question}
-    """
-    return prompt
-    

@@ -74,8 +74,7 @@ async def router_chain(question: str,query_type:str,issue_key):
     elif query_type == "list":
         result = await list_chain(question)
     else:
-        result = default_chain.ainvoke({"question": question,"issue_key":"","chat_history":chat_history})
-
+        result =await default_chain.ainvoke({"question": question,"issue_key":"","chat_history":chat_history})
     return result["answer"]
 
 def get_system_prompt()-> str:

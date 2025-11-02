@@ -94,7 +94,7 @@ def get_system_prompt()-> str:
     prompt = """
         You are a Jira issue assistant. You have access to Jira issues with fields:
         key, summary, description, status.
-        
+        response answer in Traditional Chinese.
         Context:
         {context}
 
