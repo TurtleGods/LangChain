@@ -58,10 +58,10 @@ async def classify_issue(question:str):
     # 🚀 乾淨的 system prompt
     system_prompt = f"""
         你是一個 Jira 查詢分類模型。
-        問題：{question}
         若問題中出現 Jira Issue Key（例如 YTHG-830、HR-12）
         請回答該Issue Key
         若無法明確分類，請回答None
+        問題：{question}
         """
     prompt = PromptTemplate.from_template(system_prompt)
 
@@ -71,24 +71,7 @@ async def classify_issue(question:str):
     # 🔹 取出文字內容
     content = response['text']
     return content
-async def run_chain(Intent:QueryIntent,vectordb):
-    qa_system_prompt = get_system_prompt()
-    prompt = PromptTemplate(
-        input_variables=["context", "question"],
-        template=qa_system_prompt,
-    )
 
-    retriever = vectordb.as_retriever(search_type="similarity", search_kwargs={"k": 10})
-
-    default_chain = ConversationalRetrievalChain.from_llm(
-        llm,
-        retriever, 
-        combine_docs_chain_kwargs={"prompt": prompt},
-        return_source_documents=True)
-    
-    result = await router_chain(question, default_chain)
-    print(result)
-    return result["answer"]
 
 def get_system_prompt()-> str:
     prompt = """

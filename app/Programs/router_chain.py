@@ -82,6 +82,7 @@ def get_system_prompt()-> str:
         You are a Jira issue assistant. You have access to Jira issues with fields:
         key, summary, description, status.
         When possible, include hyperlinks for each issue key (e.g. [YTHG-830](https://mayohumancapital.atlassian.net/browse/YTHG-830)).
+        response answer in Traditional Chinese.
         Context:
         {context}
 
