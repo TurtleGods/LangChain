@@ -21,10 +21,15 @@ database:langchain_db<br>
 Username:postgres<br>
 password:postgres<br>
 # API
-問問題:<br>
-[post]
-https://localhost:8000/openAI/ask <br>
-body:{"question":"{你的問題}"}<br>
-拿取Jira:<br>
+Swagger:
+https://localhost:8000/docs<br>
+
+拿取Jira，先建立資料庫跟Chroma:
 [put]
-https://localhost:8000/jira/
+https://localhost:8000/jira/<br>
+
+問問題:
+[post]
+https://localhost:8000/openAI/ask
+body:{"question":"{你的問題}"}<br>
+
