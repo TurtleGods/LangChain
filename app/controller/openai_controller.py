@@ -24,16 +24,3 @@ async def ask_question(query: QueryModel.QueryRequest):
     except Exception as e:
         # Catch exceptions during chain invocation (e.g., API errors)
         raise HTTPException(status_code=400, error=f"LLM chain failed: {e}")
-    
-@router.post("/Intent", response_model=QueryModel.QueryResponse)
-async def detect_intent(query: QueryModel.QueryRequest):
-    """
-    Detects the intent of the question.
-    """
-    try:
-
-        intent_str = classify_query_intent(query.question)
-        print(intent_str)
-    except Exception as e:
-        # Catch exceptions during chain invocation (e.g., API errors)
-        raise HTTPException(status_code=400, error=f"Intent detection failed: {e}")
