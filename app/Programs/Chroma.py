@@ -28,10 +28,10 @@ async def get_chroma():
     _vectordb = Chroma(persist_directory="./chroma_db", embedding_function=embeddings)
     if len(_vectordb.get()["ids"]) == 0:
         issues = await load_jira_issues()
-        _vectordb = build_chroma(issues, embeddings)
+        _vectordb = build_chroma(issues)
     return _vectordb
 
-def build_chroma(issues, embeddings):
+def build_chroma(issues):
     batch_size=50
     texts = []
     metadatas = []
