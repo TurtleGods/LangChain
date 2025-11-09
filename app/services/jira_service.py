@@ -42,13 +42,12 @@ def issue_list_to_dict(issues):
             "summary": fields.get("summary"),
             "description": fields.get("description"),
             "status": fields.get("status", {}).get("name"),
-            "assignee": fields.get("assignee", {}).get("displayName")
-                        if fields.get("assignee") else None,
+            "assignee": fields.get("assignee", {}).get("displayName") if fields.get("assignee") else None,
             "created": fields.get("created"),
             "updated": fields.get("updated"),
-            "comments": comments,
-            "raw": issue.raw,
+            "comments": comments
         })
+
 
     return result
 
@@ -93,16 +92,17 @@ class JiraService:
 
         for raw in issues_raw:
             issue = JiraIssue(
-                key=raw["key"],
+                key=raw["key"], 
                 summary=raw["summary"],
                 description=raw["description"],
                 status=raw["status"],
                 assignee=raw["assignee"],
-                created=_parse_ts(raw["created"]),   # ✅ now safe for DB
-                updated=_parse_ts(raw["updated"]),   # ✅ safe
-                data=raw,
+                created=_parse_ts(raw["created"]),
+                updated=_parse_ts(raw["updated"]),
+                comment=raw["comments"],   # ✅ 放 comment JSONB
+                data=raw,                  # ✅ 放 trimmed JSON
             )
             mapped.append(issue)
 
-        saved = await self.repo.upsert_many(mapped)
+        saved = await self.repo.upsert_many(mapped) 
         return len(saved)

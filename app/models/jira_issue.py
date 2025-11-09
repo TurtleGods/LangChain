@@ -1,6 +1,6 @@
 from sqlalchemy.orm import declarative_base
-from sqlalchemy import Column, Integer, String, DateTime, JSON
-
+from sqlalchemy import Column, Integer, String, DateTime,JSON
+from sqlalchemy.dialects.postgresql import JSONB
 Base = declarative_base()
 
 class JiraIssue(Base):
@@ -14,4 +14,5 @@ class JiraIssue(Base):
     assignee = Column(String)
     created = Column(DateTime)
     updated = Column(DateTime)
+    comment = Column(JSONB)
     data = Column(JSON)  # PostgreSQL JSONB

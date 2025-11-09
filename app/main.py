@@ -33,18 +33,6 @@ async def on_startup():
 async def root():
     """Simple health check endpoint."""
     return {"status": "ok", "service": "LangChain FastAPI is ready to serve queries at /ask"}
-
-@app.get("/seed")
-async def seed_database():
-    """
-    Seeds the database with initial data from the seed JSON file.
-    """
-    try:
-        from app.services.db_service import seed_data
-        await seed_data()
-        return {"status": "success", "message": "Database seeded successfully."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to seed database: {str(e)}")
     
 # This block is only for running the file directly outside of the container
 if __name__ == "__main__":

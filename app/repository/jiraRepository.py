@@ -23,6 +23,7 @@ class JiraRepository:
             existing.assignee = issue.assignee
             existing.created = issue.created
             existing.updated = issue.updated
+            existing.comment = issue.comment
             existing.data = issue.data
             await self.session.commit()
             await self.session.refresh(existing)
