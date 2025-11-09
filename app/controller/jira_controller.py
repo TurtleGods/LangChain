@@ -12,6 +12,6 @@ router = APIRouter(prefix="/jira", tags=["jira"])
 @router.post("/sync")
 async def sync_jira(session: AsyncSession = Depends(get_session)):
     repo = JiraRepository(session)
-    service = JiraService(repo)
+    service = JiraService(repo, session)
     count = await service.sync_filtered_project()
     return {"synced": count}

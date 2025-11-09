@@ -1,19 +1,17 @@
 from datetime import datetime
-from typing import Optional
 from app.repository.jiraRepository import JiraRepository
 from jira import JIRA
 from app.config import JIRA_URL, JIRA_TOKEN, JIRA_EMAIL
 from app.models.jira_issue import JiraIssue
 from dateutil import parser
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.sync_log import SyncLog
 
-def _parse_ts(s: Optional[str]) -> Optional[datetime]:
-    if not s:
+def _parse_ts(val):
+    if not val:
         return None
-    dt = parser.parse(s)
-    # ✅ Remove timezone WITHOUT shifting the time
-    if dt.tzinfo:
-        dt = dt.replace(tzinfo=None)
-    return dt
+    dt = parser.parse(val)
+    return dt.replace(tzinfo=None)
 
 def get_jira_client():
     jira = JIRA(
@@ -80,29 +78,44 @@ async def fetch_jira_issues(jql=None, fields=None):
 
 
 class JiraService:
-    def __init__(self, repo: JiraRepository):
+    def __init__(self, repo: JiraRepository, session: AsyncSession):
         self.repo = repo
-
+        self.session = session
     async def sync_filtered_project(self):
-        issues_raw = await fetch_jira_issues(
-            jql='project = "問題及需求回報區" ORDER BY created DESC'
-        )
-
-        mapped = []
-
-        for raw in issues_raw:
-            issue = JiraIssue(
-                key=raw["key"], 
-                summary=raw["summary"],
-                description=raw["description"],
-                status=raw["status"],
-                assignee=raw["assignee"],
-                created=_parse_ts(raw["created"]),
-                updated=_parse_ts(raw["updated"]),
-                comment=raw["comments"],   # ✅ 放 comment JSONB
-                data=raw,                  # ✅ 放 trimmed JSON
+        
+        log = SyncLog(started_at=datetime.now(), status="running")
+        self.session.add(log)
+        await self.session.commit()
+        try:
+            issues_raw = await fetch_jira_issues(
+                jql='project = "問題及需求回報區" ORDER BY created DESC'
             )
-            mapped.append(issue)
 
-        saved = await self.repo.upsert_many(mapped) 
-        return len(saved)
+            mapped = []
+
+            for raw in issues_raw:
+                issue = JiraIssue(
+                    key=raw["key"], 
+                    summary=raw["summary"],
+                    description=raw["description"],
+                    status=raw["status"],
+                    assignee=raw["assignee"],
+                    created=_parse_ts(raw["created"]),
+                    updated=_parse_ts(raw["updated"]),
+                    comment=raw["comments"],   # ✅ 放 comment JSONB
+                    data=raw,                  # ✅ 放 trimmed JSON
+                )
+                mapped.append(issue)
+
+            count = await self.repo.upsert_many(mapped) 
+            log.status = "success"
+            log.synced_count = count
+            log.finished_at = datetime.now()
+            await self.session.commit()
+            return count
+        except Exception as ex:
+            log.status = "fail"
+            log.error_message = str(ex)
+            log.finished_at = datetime.now()
+            await self.session.commit()
+            raise ex
