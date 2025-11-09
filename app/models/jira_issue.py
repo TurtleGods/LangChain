@@ -7,7 +7,7 @@ class JiraIssue(Base):
     __tablename__ = "jira_issues"
 
     id = Column(Integer, primary_key=True, index=True)
-    key = Column(String)
+    key = Column(String, unique=True, index=True,nullable=False)
     summary = Column(String)
     description = Column(String)
     status = Column(String)

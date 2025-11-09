@@ -1,7 +1,19 @@
+from datetime import datetime
+from typing import Optional
 from app.repository.jiraRepository import JiraRepository
 from jira import JIRA
 from app.config import JIRA_URL, JIRA_TOKEN, JIRA_EMAIL
 from app.models.jira_issue import JiraIssue
+from dateutil import parser
+
+def _parse_ts(s: Optional[str]) -> Optional[datetime]:
+    if not s:
+        return None
+    dt = parser.parse(s)
+    # ✅ Remove timezone WITHOUT shifting the time
+    if dt.tzinfo:
+        dt = dt.replace(tzinfo=None)
+    return dt
 
 def get_jira_client():
     jira = JIRA(
@@ -10,15 +22,13 @@ def get_jira_client():
     )
     return jira
 
-def issue_list_to_dict(issues, jira):
-    """Convert Jira Issue objects → pure dict, including comments."""
-    result = []
 
+def issue_list_to_dict(issues):
+    result = []
     for issue in issues:
         fields = issue.raw.get("fields", {})
-
         comments = []
-        if "comment" in fields and isinstance(fields["comment"], dict):
+        if "comment" in fields:
             items = fields["comment"].get("comments", [])
             for c in items:
                 comments.append({
@@ -37,7 +47,7 @@ def issue_list_to_dict(issues, jira):
             "created": fields.get("created"),
             "updated": fields.get("updated"),
             "comments": comments,
-            "raw": issue.raw,              # 如果你要完整 JSON
+            "raw": issue.raw,
         })
 
     return result
@@ -60,14 +70,16 @@ async def fetch_jira_issues(jql=None, fields=None):
 
     issues_result = jira.enhanced_search_issues(
         jql_str=jql,
-        maxResults=0,           # fetch ALL pages automatically
+        maxResults=0,
         fields=fields,
         json_result=False,
         use_post=True
     )
 
-    issues = issue_list_to_dict(issues_result, jira)
+    issues = issue_list_to_dict(issues_result)
     return issues
+
+
 class JiraService:
     def __init__(self, repo: JiraRepository):
         self.repo = repo
@@ -78,6 +90,7 @@ class JiraService:
         )
 
         mapped = []
+
         for raw in issues_raw:
             issue = JiraIssue(
                 key=raw["key"],
@@ -85,9 +98,9 @@ class JiraService:
                 description=raw["description"],
                 status=raw["status"],
                 assignee=raw["assignee"],
-                created=raw["created"],
-                updated=raw["updated"],
-                data=raw,                # ← 存完整 JSON
+                created=_parse_ts(raw["created"]),   # ✅ now safe for DB
+                updated=_parse_ts(raw["updated"]),   # ✅ safe
+                data=raw,
             )
             mapped.append(issue)
 
