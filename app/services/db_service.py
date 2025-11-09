@@ -1,8 +1,8 @@
-from sqlalchemy import  text
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.ext.declarative import declarative_base
 from app.config import POSTGRES_URL
-from langchain_community.utilities import SQLDatabase
+
 import json
 from datetime import datetime 
 engine = create_async_engine(POSTGRES_URL)

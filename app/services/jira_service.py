@@ -1,64 +1,95 @@
+from app.repository.jiraRepository import JiraRepository
 from jira import JIRA
-import os 
 from app.config import JIRA_URL, JIRA_TOKEN, JIRA_EMAIL
+from app.models.jira_issue import JiraIssue
 
 def get_jira_client():
-    try:
-        return JIRA(
-            server=JIRA_URL,
-            basic_auth=(JIRA_EMAIL, JIRA_TOKEN)
-        )
-    except Exception as e:
-        print(f"Error connecting to Jira: {e}")
-        raise
-
-def fetch_issues(jql="project = 問題及需求回報區 ORDER BY created DESC", fields=None):
-    print("Fetching issues from Jira...")
-    jira = get_jira_client()
-    if fields is None:
-        # pick only the fields you need to reduce payload size
-        fields = ["key", "summary", "description", "status", "assignee", "created","updated","comment"]
-
-    # Ask the client to fetch ALL pages in batches by using maxResults=0
-    # (the client uses a default batch internally).
-    issues_result = jira.enhanced_search_issues(
-        jql_str=jql,
-        maxResults=0,           # 0/False -> fetch everything in batches
-        fields=fields,
-        json_result=False,      # returns a ResultList of Issue resources
-        use_post=True           # optional: use POST if your JQL is long
+    jira = JIRA(
+        server=JIRA_URL,
+        basic_auth=(JIRA_EMAIL, JIRA_TOKEN)
     )
-
-    # issues_result is an iterable (ResultList) of Issue resources.
-    issues = issue_list_to_dict(issues_result, jira)
-
-
-    return issues
-
-def update_issue():
-    jql = 'project = 問題及需求回報區 AND updated >= -1d ORDER BY updated DESC'
-    update_issue= fetch_issues(jql)
-    print(f"Fetched {len(update_issue)} updated issues from Jira.")
-    return update_issue
-
+    return jira
 
 def issue_list_to_dict(issues, jira):
-    issueResult=[]
+    """Convert Jira Issue objects → pure dict, including comments."""
+    result = []
+
     for issue in issues:
-        issueResult.append({
+        fields = issue.raw.get("fields", {})
+
+        comments = []
+        if "comment" in fields and isinstance(fields["comment"], dict):
+            items = fields["comment"].get("comments", [])
+            for c in items:
+                comments.append({
+                    "author": c["author"]["displayName"],
+                    "created": c["created"],
+                    "body": c["body"]
+                })
+
+        result.append({
             "key": issue.key,
-            "summary": getattr(issue.fields, "summary", None),
-            "description": getattr(issue.fields, "description", None),
-            "status": getattr(issue.fields.status, "name", None) if issue.fields and getattr(issue.fields, "status", None) else None,
-            "assignee": getattr(issue.fields.assignee, "displayName", None) if issue.fields and getattr(issue.fields, "assignee", None) else None,
-            "created": getattr(issue.fields, "created", None),
-            "updated": getattr(issue.fields, "updated", None),
-            "comments": [{
-                "author": comment.author.displayName,
-                "body": comment.body,
-                "created": comment.created
-            }
-            for comment in jira.comments(issue.key)
-            ]
+            "summary": fields.get("summary"),
+            "description": fields.get("description"),
+            "status": fields.get("status", {}).get("name"),
+            "assignee": fields.get("assignee", {}).get("displayName")
+                        if fields.get("assignee") else None,
+            "created": fields.get("created"),
+            "updated": fields.get("updated"),
+            "comments": comments,
+            "raw": issue.raw,              # 如果你要完整 JSON
         })
-    return issueResult
+
+    return result
+
+
+async def fetch_jira_issues(jql=None, fields=None):
+    print("Fetching issues from Jira...")
+
+    jira = get_jira_client()
+
+    if jql is None:
+        jql = 'project = "問題及需求回報區" ORDER BY created DESC'
+
+    if fields is None:
+        fields = [
+            "key", "summary", "description",
+            "status", "assignee",
+            "created", "updated", "comment"
+        ]
+
+    issues_result = jira.enhanced_search_issues(
+        jql_str=jql,
+        maxResults=0,           # fetch ALL pages automatically
+        fields=fields,
+        json_result=False,
+        use_post=True
+    )
+
+    issues = issue_list_to_dict(issues_result, jira)
+    return issues
+class JiraService:
+    def __init__(self, repo: JiraRepository):
+        self.repo = repo
+
+    async def sync_filtered_project(self):
+        issues_raw = await fetch_jira_issues(
+            jql='project = "問題及需求回報區" ORDER BY created DESC'
+        )
+
+        mapped = []
+        for raw in issues_raw:
+            issue = JiraIssue(
+                key=raw["key"],
+                summary=raw["summary"],
+                description=raw["description"],
+                status=raw["status"],
+                assignee=raw["assignee"],
+                created=raw["created"],
+                updated=raw["updated"],
+                data=raw,                # ← 存完整 JSON
+            )
+            mapped.append(issue)
+
+        saved = await self.repo.upsert_many(mapped)
+        return len(saved)

@@ -1,4 +1,5 @@
 from app.controller import jira_controller, openai_controller
+from app.database import create_schema
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,7 +25,10 @@ app.add_middleware(
 
 app.include_router(jira_controller.router)
 app.include_router(openai_controller.router)
-
+@app.on_event("startup")
+async def on_startup():
+    print("Creating schema...")
+    await create_schema()
 @app.get("/")
 async def root():
     """Simple health check endpoint."""
