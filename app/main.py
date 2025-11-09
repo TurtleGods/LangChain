@@ -1,4 +1,5 @@
 from app.controller import jira_controller, openai_controller
+from app.database import create_schema
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,23 +25,14 @@ app.add_middleware(
 
 app.include_router(jira_controller.router)
 app.include_router(openai_controller.router)
-
+@app.on_event("startup")
+async def on_startup():
+    print("Creating schema...")
+    await create_schema()
 @app.get("/")
 async def root():
     """Simple health check endpoint."""
     return {"status": "ok", "service": "LangChain FastAPI is ready to serve queries at /ask"}
-
-@app.get("/seed")
-async def seed_database():
-    """
-    Seeds the database with initial data from the seed JSON file.
-    """
-    try:
-        from app.services.db_service import seed_data
-        await seed_data()
-        return {"status": "success", "message": "Database seeded successfully."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to seed database: {str(e)}")
     
 # This block is only for running the file directly outside of the container
 if __name__ == "__main__":

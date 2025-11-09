@@ -1,36 +1,17 @@
 from http.client import HTTPException
-from app.services.db_service import select_all_issues
-from app.services.ingest_service import ingest_jira_data, update_jira_data
-from fastapi import APIRouter
+import app
+from app.database import get_session
+from app.repository.jiraRepository import JiraRepository
+from app.services.jira_service import JiraService
+from fastapi import APIRouter,Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/jira", tags=["jira"])
 
-@router.put("/")
-async def fetch_jira_issues():
-    """
-    Fetches issues from Jira and returns the count.
-    """
-    try:
-        await ingest_jira_data()
-        return {"status": "success", "message": "Jira issues ingested successfully."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to ingest Jira issues: {str(e)}")
 
-@router.get("/jira/show")
-async def show_jira_issues():
-    """
-    Fetches and displays all Jira issues from the database.
-    """
-    try:
-        await select_all_issues()
-        return {"status": "success", "message": "Jira issues displayed successfully."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to display Jira issues: {str(e)}")
-
-@router.put("/update")
-async def update_jira_issues():
-    try:
-        await update_jira_data()
-        return {"status": "success", "message": "Jira issues updated successfully."}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update Jira issues: {str(e)}")
+@router.post("/sync")
+async def sync_jira(session: AsyncSession = Depends(get_session)):
+    repo = JiraRepository(session)
+    service = JiraService(repo)
+    count = await service.sync_filtered_project()
+    return {"synced": count}
