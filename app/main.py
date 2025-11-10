@@ -12,6 +12,8 @@ origins = [
     "https://localhost:5001",   # 你的 .NET 前端
     "https://localhost:4200",    # 如果有 Angular Dev server
     "http://localhost:4200",
+    "https://localhost:5173",
+    "https://localhost:44303"
 ]
 
 app.add_middleware(
