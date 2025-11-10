@@ -1,64 +1,121 @@
+from datetime import datetime
+from app.repository.jiraRepository import JiraRepository
 from jira import JIRA
-import os 
 from app.config import JIRA_URL, JIRA_TOKEN, JIRA_EMAIL
+from app.models.jira_issue import JiraIssue
+from dateutil import parser
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.sync_log import SyncLog
+
+def _parse_ts(val):
+    if not val:
+        return None
+    dt = parser.parse(val)
+    return dt.replace(tzinfo=None)
 
 def get_jira_client():
-    try:
-        return JIRA(
-            server=JIRA_URL,
-            basic_auth=(JIRA_EMAIL, JIRA_TOKEN)
-        )
-    except Exception as e:
-        print(f"Error connecting to Jira: {e}")
-        raise
+    jira = JIRA(
+        server=JIRA_URL,
+        basic_auth=(JIRA_EMAIL, JIRA_TOKEN)
+    )
+    return jira
 
-def fetch_issues(jql="project = 問題及需求回報區 ORDER BY created DESC", fields=None):
+
+def issue_list_to_dict(issues):
+    result = []
+    for issue in issues:
+        fields = issue.raw.get("fields", {})
+        comments = []
+        if "comment" in fields:
+            items = fields["comment"].get("comments", [])
+            for c in items:
+                comments.append({
+                    "author": c["author"]["displayName"],
+                    "created": c["created"],
+                    "body": c["body"]
+                })
+
+        result.append({
+            "key": issue.key,
+            "summary": fields.get("summary"),
+            "description": fields.get("description"),
+            "status": fields.get("status", {}).get("name"),
+            "assignee": fields.get("assignee", {}).get("displayName") if fields.get("assignee") else None,
+            "created": fields.get("created"),
+            "updated": fields.get("updated"),
+            "comments": comments
+        })
+
+
+    return result
+
+
+async def fetch_jira_issues(jql=None, fields=None):
     print("Fetching issues from Jira...")
-    jira = get_jira_client()
-    if fields is None:
-        # pick only the fields you need to reduce payload size
-        fields = ["key", "summary", "description", "status", "assignee", "created","updated","comment"]
 
-    # Ask the client to fetch ALL pages in batches by using maxResults=0
-    # (the client uses a default batch internally).
+    jira = get_jira_client()
+
+    if jql is None:
+        jql = 'project = "問題及需求回報區" ORDER BY created DESC'
+
+    if fields is None:
+        fields = [
+            "key", "summary", "description",
+            "status", "assignee",
+            "created", "updated", "comment"
+        ]
+
     issues_result = jira.enhanced_search_issues(
         jql_str=jql,
-        maxResults=0,           # 0/False -> fetch everything in batches
+        maxResults=0,
         fields=fields,
-        json_result=False,      # returns a ResultList of Issue resources
-        use_post=True           # optional: use POST if your JQL is long
+        json_result=False,
+        use_post=True
     )
 
-    # issues_result is an iterable (ResultList) of Issue resources.
-    issues = issue_list_to_dict(issues_result, jira)
-
-
+    issues = issue_list_to_dict(issues_result)
     return issues
 
-def update_issue():
-    jql = 'project = 問題及需求回報區 AND updated >= -1d ORDER BY updated DESC'
-    update_issue= fetch_issues(jql)
-    print(f"Fetched {len(update_issue)} updated issues from Jira.")
-    return update_issue
 
+class JiraService:
+    def __init__(self, repo: JiraRepository, session: AsyncSession):
+        self.repo = repo
+        self.session = session
+    async def sync_filtered_project(self):
+        
+        log = SyncLog(started_at=datetime.now(), status="running")
+        self.session.add(log)
+        await self.session.commit()
+        try:
+            issues_raw = await fetch_jira_issues(
+                jql='project = "問題及需求回報區" ORDER BY created DESC'
+            )
 
-def issue_list_to_dict(issues, jira):
-    issueResult=[]
-    for issue in issues:
-        issueResult.append({
-            "key": issue.key,
-            "summary": getattr(issue.fields, "summary", None),
-            "description": getattr(issue.fields, "description", None),
-            "status": getattr(issue.fields.status, "name", None) if issue.fields and getattr(issue.fields, "status", None) else None,
-            "assignee": getattr(issue.fields.assignee, "displayName", None) if issue.fields and getattr(issue.fields, "assignee", None) else None,
-            "created": getattr(issue.fields, "created", None),
-            "updated": getattr(issue.fields, "updated", None),
-            "comments": [{
-                "author": comment.author.displayName,
-                "body": comment.body,
-                "created": comment.created
-            }
-            for comment in jira.comments(issue.key)
-            ]
-        })
-    return issueResult
+            mapped = []
+
+            for raw in issues_raw:
+                issue = JiraIssue(
+                    key=raw["key"], 
+                    summary=raw["summary"],
+                    description=raw["description"],
+                    status=raw["status"],
+                    assignee=raw["assignee"],
+                    created=_parse_ts(raw["created"]),
+                    updated=_parse_ts(raw["updated"]),
+                    comment=raw["comments"],   # ✅ 放 comment JSONB
+                    data=raw,                  # ✅ 放 trimmed JSON
+                )
+                mapped.append(issue)
+
+            count = await self.repo.upsert_many(mapped) 
+            log.status = "success"
+            log.synced_count = count
+            log.finished_at = datetime.now()
+            await self.session.commit()
+            return count
+        except Exception as ex:
+            log.status = "fail"
+            log.error_message = str(ex)
+            log.finished_at = datetime.now()
+            await self.session.commit()
+            raise ex
