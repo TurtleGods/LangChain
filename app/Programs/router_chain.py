@@ -17,6 +17,7 @@ async def issue_detail_chain(issue_key:str):
         return f"❌ 沒有找到 {issue_key} 的細節"
     
     answer = (
+        f"**[{issue_key}](https://mayohumancapital.atlassian.net/browse/{issue_key})**\n"
         f"Issue {issue['key']} 細節：\n"
         f"- Summary: {issue.get('summary')}\n"
         f"- Description: {issue.get('description')}\n"

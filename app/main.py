@@ -14,7 +14,9 @@ origins = [
     "https://localhost:4200",    # 如果有 Angular Dev server
     "http://localhost:4200",
     "https://localhost:5173",
-    "https://localhost:44303"
+    "https://localhost:44303",
+    "http://192.168.17.6:5173",
+    "https://192.168.17.6:5173"
 ]
 
 app.add_middleware(
