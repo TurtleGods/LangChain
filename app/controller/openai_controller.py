@@ -13,12 +13,11 @@ async def ask_question(query: QueryModel.QueryRequest):
     Processes a natural language question using the LangChain LLM.
     """
     try:
+        print("UserId:",query.userId,"Username:",query.username)
         intent = await classify_query_intent(query.question)
         issue_key = await classify_issue(query.question)
         result= await router_chain(query.question,intent, issue_key)
         return QueryModel.QueryResponse(
-            senderId="OpenAI",
-            senderDisplayName="OpenAI",
             content=result
         )
     except Exception as e:

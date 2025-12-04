@@ -4,11 +4,11 @@ from pydantic import BaseModel
 class QueryRequest(BaseModel):
     """Schema for the incoming request body."""
     question: str
+    userId:str
+    username:str
     
 class QueryResponse(BaseModel):
     """Schema for the outgoing response body."""
-    senderId: str
-    senderDisplayName: str
     content: str
 class QueryResponse1(BaseModel):
     response: str
