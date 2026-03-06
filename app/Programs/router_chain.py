@@ -14,7 +14,7 @@ chat_history=[]
 async def issue_detail_chain(issue_key:str):
     issue = await get_issue_by_key(issue_key)
     if not issue:
-        return f"❌ 沒有找到 {issue_key} 的細節"
+        return {"answer": f"❌ 沒有找到 {issue_key} 的細節"}
     
     answer = (
         f"**[{issue_key}](https://mayohumancapital.atlassian.net/browse/{issue_key})**\n"
@@ -35,7 +35,7 @@ async def issue_detail_chain(issue_key:str):
 async def similarity_chain(issue_key:str):
     issue = await get_issue_by_key(issue_key)
     if not issue:
-        return  f"❌ 沒找到 {issue_key}"
+        return {"answer": f"❌ 沒找到 {issue_key}"}
     query_text = f"找和這個{issue} Issue 類似的案例: {issue.get('summary')} {issue.get('description')}"
     result = default_chain.invoke({"question": query_text,"issue_key":issue_key, "chat_history": chat_history})
     return result
@@ -76,13 +76,18 @@ async def router_chain(question: str,query_type:str,issue_key):
         result = await list_chain(question)
     else:
         result =await default_chain.ainvoke({"question": question,"issue_key":"","chat_history":chat_history})
-    return result["answer"]
+    if isinstance(result, dict):
+        return result.get("answer") or result.get("result") or ""
+    return str(result)
 
 def get_system_prompt()-> str:
     prompt = """
-        You are a Jira issue assistant. You have access to Jira issues with fields:
-        key, summary, description, status.
+        You are a Jira + Wiki assistant.
+        You have access to:
+        1) Jira issues with fields: key, summary, description, status.
+        2) Wiki documents with metadata: path, title.
         When possible, include hyperlinks for each issue key (e.g. [YTHG-830](https://mayohumancapital.atlassian.net/browse/YTHG-830)).
+        If the answer is from wiki content, mention the wiki path/title as citation.
         response answer in Traditional Chinese.
         Context:
         {context}
