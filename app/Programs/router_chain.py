@@ -1,3 +1,4 @@
+import re
 from app.Programs.Agent import get_llm
 from app.Programs.Chroma import get_chroma
 from app.services.db_service import get_issue_by_key
@@ -8,6 +9,31 @@ from langchain_core.prompts import PromptTemplate
 default_chain = None
 wiki_chain = None
 chat_history = []
+ISSUE_KEY_RE = re.compile(r"\b[A-Z][A-Z0-9]+-\d+\b")
+JIRA_BROWSE_URL = "https://mayohumancapital.atlassian.net/browse/"
+
+
+def _link_issue_keys(text: str) -> str:
+    if not text:
+        return text
+
+    def _replace(match: re.Match) -> str:
+        key = match.group(0)
+        start = match.start()
+        end = match.end()
+
+        # Skip if already inside markdown link label: [YTHG-830](...)
+        if start > 0 and end < len(text) and text[start - 1] == "[" and text[end] == "]":
+            return key
+
+        # Skip if key already appears as part of /browse/{KEY}
+        prefix = text[max(0, start - 8):start]
+        if prefix.endswith("/browse/"):
+            return key
+
+        return f"[{key}]({JIRA_BROWSE_URL}{key})"
+
+    return ISSUE_KEY_RE.sub(_replace, text)
 
 
 SIMILARITY_PROMPT = PromptTemplate.from_template(
@@ -150,8 +176,9 @@ async def router_chain(question: str, query_type: str, issue_key):
         result = await default_chain.ainvoke({"question": question, "issue_key": "", "chat_history": chat_history})
 
     if isinstance(result, dict):
-        return result.get("answer") or result.get("result") or ""
-    return str(result)
+        output = result.get("answer") or result.get("result") or ""
+        return _link_issue_keys(output)
+    return _link_issue_keys(str(result))
 
 
 def get_system_prompt() -> PromptTemplate:
