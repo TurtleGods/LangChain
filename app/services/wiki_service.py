@@ -1,13 +1,16 @@
 import hashlib
+import os
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
-from app.services.db_service import get_wiki_checksums, upsert_wiki_document
+from app.services.db_service import get_wiki_checksums, load_wiki_documents, upsert_wiki_document
 
 
 ALLOWED_EXTENSIONS = {".md", ".txt", ".sql"}
 EXCLUDED_DIRS = {".git", ".attachments", "__pycache__"}
 DEFAULT_WIKI_ROOT = Path("wiki")
+DEFAULT_WIKI_FOLDER_NAME = "MAYO-ApolloAsia-Knowledge-Management.wiki"
+WIKI_ROOT_ENV_KEY = "WIKI_ROOT"
 
 
 def _is_allowed_file(path: Path) -> bool:
@@ -34,8 +37,26 @@ def _list_wiki_files(wiki_root: Path) -> List[Path]:
     return files
 
 
-async def sync_wiki_documents(wiki_root: str = "wiki\MAYO-ApolloAsia-Knowledge-Management.wiki\首頁") -> Dict[str, int]:
-    root = Path(wiki_root)
+def resolve_wiki_root(wiki_root: Optional[str] = None) -> Path:
+    if wiki_root:
+        return Path(wiki_root)
+
+    env_root = os.getenv(WIKI_ROOT_ENV_KEY)
+    if env_root:
+        return Path(env_root)
+
+    candidates = [
+        DEFAULT_WIKI_ROOT / DEFAULT_WIKI_FOLDER_NAME,
+        DEFAULT_WIKI_ROOT,
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
+
+
+async def sync_wiki_documents(wiki_root: Optional[str] = None) -> Dict[str, int]:
+    root = resolve_wiki_root(wiki_root)
     if not root.exists():
         return {"scanned": 0, "upserted": 0, "skipped": 0}
 
@@ -72,3 +93,8 @@ async def sync_wiki_documents(wiki_root: str = "wiki\MAYO-ApolloAsia-Knowledge-M
         upserted += 1
 
     return {"scanned": scanned, "upserted": upserted, "skipped": skipped}
+
+
+async def get_synced_wiki_documents(wiki_root: Optional[str] = None) -> List[Dict[str, str]]:
+    await sync_wiki_documents(wiki_root)
+    return await load_wiki_documents()

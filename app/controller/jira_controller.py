@@ -23,7 +23,7 @@ async def sync_jira(session: AsyncSession = Depends(get_session)):
     return {
         "jira_synced": jira_count,
         "wiki_sync": wiki_sync_result,
-        "chroma_synced": chroma_synced,
+        "chroma_vectors": chroma_synced,
     }
 
 
