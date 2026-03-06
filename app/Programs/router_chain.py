@@ -1,24 +1,22 @@
-import re
 from app.Programs.Agent import get_llm
 from app.Programs.Chroma import get_chroma
 from app.services.db_service import get_issue_by_key
-from sqlalchemy import text
 from langchain.chains import ConversationalRetrievalChain
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_community.vectorstores import Chroma 
-from langchain_core.prompts.chat import(
-    PromptTemplate
-)
+from langchain_core.prompts.chat import PromptTemplate
+
+
 default_chain = None
-chat_history=[]
-async def issue_detail_chain(issue_key:str):
+wiki_chain = None
+chat_history = []
+
+
+async def issue_detail_chain(issue_key: str):
     issue = await get_issue_by_key(issue_key)
     if not issue:
-        return {"answer": f"❌ 沒有找到 {issue_key} 的細節"}
-    
+        return {"answer": f"找不到 Issue: {issue_key}"}
+
     answer = (
         f"**[{issue_key}](https://mayohumancapital.atlassian.net/browse/{issue_key})**\n"
-        f"Issue {issue['key']} 細節：\n"
         f"- Summary: {issue.get('summary')}\n"
         f"- Description: {issue.get('description')}\n"
         f"- Status: {issue.get('status')}\n"
@@ -27,44 +25,65 @@ async def issue_detail_chain(issue_key:str):
         f"- Updated: {issue.get('updated')}\n"
     )
     if issue.get("comments"):
-        answer += "\n💬 Comments:\n"
+        answer += "\nComments:\n"
         for c in issue["comments"]:
-            answer += f"- {c['author']} ({c['created']}): {c['body']}\n"
-    return {"answer":answer}
+            answer += f"- {c.get('author')} ({c.get('created')}): {c.get('body')}\n"
+    return {"answer": answer}
 
-async def similarity_chain(issue_key:str):
+
+async def similarity_chain(issue_key: str):
     issue = await get_issue_by_key(issue_key)
     if not issue:
-        return {"answer": f"❌ 沒找到 {issue_key}"}
-    query_text = f"找和這個{issue} Issue 類似的案例: {issue.get('summary')} {issue.get('description')}"
-    result = default_chain.invoke({"question": query_text,"issue_key":issue_key, "chat_history": chat_history})
-    return result
+        return {"answer": f"找不到 Issue: {issue_key}"}
+
+    query_text = (
+        "請找出與此 issue 最相似的 Jira 問題，並簡要說明相似原因："
+        f"{issue.get('summary', '')} {issue.get('description', '')}"
+    )
+    return default_chain.invoke({"question": query_text, "issue_key": issue_key, "chat_history": chat_history})
 
 
-async def filter_chain(question:str):
-    query_text = f"根據jira issues，找出與此問題相關的案例，並確認comment 中是否有解決方法:{question}"
-    result = default_chain.invoke({"question": query_text,"issue_key":"",  "chat_history": chat_history})
-    return result
+async def filter_chain(question: str):
+    query_text = f"請依條件篩選 Jira issues，必要時可參考 comments：{question}"
+    return default_chain.invoke({"question": query_text, "issue_key": "", "chat_history": chat_history})
 
-async def list_chain(question:str):
-    query_text = f"列出所有與以下主題相關的 Jira issues：{question}"
-    result = default_chain.invoke({"question": query_text, "issue_key":"", "chat_history": chat_history})
-    return result
 
-# --- RouterChain ---
-async def router_chain(question: str,query_type:str,issue_key):
-    global chat_history,default_chain
+async def list_chain(question: str):
+    query_text = f"請列出符合條件的 Jira issues：{question}"
+    return default_chain.invoke({"question": query_text, "issue_key": "", "chat_history": chat_history})
+
+
+async def wiki_only_chain(question: str):
+    query_text = f"請只根據 wiki 文件回答，並附上 wiki path/title：{question}"
+    return wiki_chain.invoke({"question": query_text, "issue_key": "", "chat_history": chat_history})
+
+
+async def router_chain(question: str, query_type: str, issue_key):
+    global chat_history, default_chain, wiki_chain
+
     llm = get_llm()
-    vectordb =await get_chroma()
-    retriever = vectordb.as_retriever(search_type="similarity", search_kwargs={"k": 10})
-    print("Load default_chain")
+    vectordb = await get_chroma()
+
+    default_retriever = vectordb.as_retriever(search_type="similarity", search_kwargs={"k": 8})
+    wiki_retriever = vectordb.as_retriever(
+        search_type="similarity",
+        search_kwargs={"k": 6, "filter": {"source": "wiki"}},
+    )
+
     default_chain = ConversationalRetrievalChain.from_llm(
         llm,
-        retriever, 
+        default_retriever,
         combine_docs_chain_kwargs={"prompt": get_system_prompt()},
-        return_source_documents=True)
+        return_source_documents=True,
+    )
+    wiki_chain = ConversationalRetrievalChain.from_llm(
+        llm,
+        wiki_retriever,
+        combine_docs_chain_kwargs={"prompt": get_system_prompt()},
+        return_source_documents=True,
+    )
 
-    print(f"👉 Query type detected: {query_type}")
+    query_type = (query_type or "").strip().lower()
 
     if query_type == "detail":
         result = await issue_detail_chain(issue_key)
@@ -74,13 +93,17 @@ async def router_chain(question: str,query_type:str,issue_key):
         result = await filter_chain(question)
     elif query_type == "list":
         result = await list_chain(question)
+    elif query_type == "wiki":
+        result = await wiki_only_chain(question)
     else:
-        result =await default_chain.ainvoke({"question": question,"issue_key":"","chat_history":chat_history})
+        result = await default_chain.ainvoke({"question": question, "issue_key": "", "chat_history": chat_history})
+
     if isinstance(result, dict):
         return result.get("answer") or result.get("result") or ""
     return str(result)
 
-def get_system_prompt()-> str:
+
+def get_system_prompt() -> str:
     prompt = """
         You are a Jira + Wiki assistant.
         You have access to:

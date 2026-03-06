@@ -1,79 +1,106 @@
-from langchain_openai import ChatOpenAI
-from langchain.chains import LLMChain
-from langchain_core.prompts.chat import(
-    ChatPromptTemplate,
-    MessagesPlaceholder,
-    PromptTemplate
-)
+import re
 from enum import Enum
-from app.config import OPENAI_API_KEY
-from langchain.chains import ConversationalRetrievalChain
 
-# 🔹 使用 LangChain ChatOpenAI
+from langchain_core.prompts.chat import PromptTemplate
+from langchain_openai import ChatOpenAI
+
+from app.config import OPENAI_API_KEY
+
+
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, openai_api_key=OPENAI_API_KEY)
-# 🔹 Enum 定義
+intent_llm = ChatOpenAI(
+    model="gpt-4o-mini",
+    temperature=0,
+    max_tokens=5,
+    openai_api_key=OPENAI_API_KEY,
+)
+
+
 class QueryIntent(str, Enum):
     DETAIL = "detail"
     SIMILARITY = "similarity"
     FILTER = "filter"
     LIST = "list"
+    WIKI = "wiki"
     DEFAULT = "default"
-    
+
+
+ISSUE_KEY_RE = re.compile(r"\b[A-Z][A-Z0-9]+-\d+\b")
+WIKI_HINTS = ("wiki", "文件", "知識庫", "頁面", "章節", "規範", "sop", "教學", "手冊")
+
+INTENT_PROMPT = PromptTemplate.from_template(
+    """
+你是查詢意圖分類器。只輸出一個標籤，不要任何解釋。
+可選標籤: detail, similarity, filter, list, wiki, default
+
+判斷規則:
+- detail: 詢問單一 issue 細節
+- similarity: 找與某 issue 相似的 issue
+- filter: 依條件篩選 issue
+- list: 列出 issue 清單
+- wiki: 詢問 wiki/文件內容、頁面、章節、規範
+- default: 無法明確判斷
+
+問題: {question}
+只輸出標籤:
+""".strip()
+)
+
+ISSUE_PROMPT = PromptTemplate.from_template(
+    """
+請從以下問題中擷取 Jira Issue Key。
+只輸出 key，例如 YTHG-830。
+若沒有，輸出 none。
+
+問題: {question}
+""".strip()
+)
+
+
 def get_llm():
     return llm
 
-# 🔹 Intent 分類函式
+
 async def classify_query_intent(question: str) -> QueryIntent:
-    """
-    使用 LLM 來判斷使用者的查詢意圖，回傳 Enum QueryIntent
-    """
-    # 🚀 乾淨的 system prompt
-    system_prompt = f"""
-        你是一個 Jira 查詢分類模型。
-        問題：{question}
-        你只能回覆以下其中一個單字（不得多字、不得附加說明）：
+    q = (question or "").strip()
+    q_lower = q.lower()
 
-        {", ".join([e.value for e in QueryIntent if e != QueryIntent.DEFAULT])}, default
+    # Fast path: no LLM call.
+    if any(h in q_lower for h in WIKI_HINTS):
+        return QueryIntent.WIKI
 
-        定義如下：
-        - detail：使用者想知道某個 Issue 的細節，例如「YTHG-830的內容」、「告訴我HR-12做了什麼」
-        - similarity：使用者想找相似的案例，例如「有沒有類似YTHG-830的問題」
-        - filter：使用者想根據條件或篩選找出相關項目，例如「找出薪資結算、離職的案例」、「comment有解決方法的問題」
-        - list：使用者想列出全部相關項目，例如「列出所有行事曆相關的案例」
-        若無法明確分類，請回答 default。
-        請只輸出上面 Enum 的其中一個值（小寫）。
-    """
-    prompt = PromptTemplate.from_template(system_prompt)
+    if ISSUE_KEY_RE.search(q):
+        if any(k in q_lower for k in ("相似", "similar", "similarity")):
+            return QueryIntent.SIMILARITY
+        if any(k in q_lower for k in ("細節", "詳情", "detail", "狀態", "內容")):
+            return QueryIntent.DETAIL
 
-    llmchain = LLMChain(llm=llm, prompt = prompt)
-    # 🔹 呼叫模型
-    response = await llmchain.ainvoke({"role": "user", "content": question})
-    # 🔹 取出文字內容
-    content = response['text']
+    chain = INTENT_PROMPT | intent_llm
+    resp = await chain.ainvoke({"question": q})
+    label = (getattr(resp, "content", "") or "").strip().lower()
 
-    # 🔹 驗證是否為 Enum 成員
-    return content
-
-async def classify_issue(question:str):
-    # 🚀 乾淨的 system prompt
-    system_prompt = f"""
-        你是一個 Jira 查詢分類模型。
-        若問題中出現 Jira Issue Key（例如 YTHG-830、HR-12）
-        請回答該Issue Key
-        若無法明確分類，請回答None
-        問題：{question}
-        """
-    prompt = PromptTemplate.from_template(system_prompt)
-
-    llmchain = LLMChain(llm=llm, prompt = prompt)
-    # 🔹 呼叫模型
-    response = await llmchain.ainvoke({"role": "user", "content": question})
-    # 🔹 取出文字內容
-    content = response['text']
-    return content
+    if label in QueryIntent._value2member_map_:
+        return QueryIntent(label)
+    return QueryIntent.DEFAULT
 
 
-def get_system_prompt()-> str:
+async def classify_issue(question: str):
+    q = (question or "").strip()
+    m = ISSUE_KEY_RE.search(q)
+    if m:
+        return m.group(0)
+
+    chain = ISSUE_PROMPT | intent_llm
+    resp = await chain.ainvoke({"question": q})
+    content = (getattr(resp, "content", "") or "").strip()
+
+    m = ISSUE_KEY_RE.search(content)
+    if m:
+        return m.group(0)
+    return "none"
+
+
+def get_system_prompt() -> str:
     prompt = """
         You are a Jira issue assistant. You have access to Jira issues with fields:
         key, summary, description, status.
